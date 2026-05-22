@@ -150,8 +150,8 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
       toast.error("Unrecognized QR code");
       return;
     }
-    setCode(parsed);
-    verifyCode(parsed);
+    setCode(parsed.code);
+    verifyCode(parsed.code, parsed.restaurantId);
   };
 
   return (
