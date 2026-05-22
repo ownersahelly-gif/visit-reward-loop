@@ -5,6 +5,10 @@ const config: CapacitorConfig = {
   appName: "Clay Loyalty",
   webDir: "dist/client",
   server: {
+    // TanStack Start is SSR — we load the published web app instead of
+    // bundling static assets. Replace with your custom domain when ready.
+    url: "https://visit-reward-loop.lovable.app",
+    cleartext: false,
     androidScheme: "https",
   },
 };
