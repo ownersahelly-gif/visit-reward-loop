@@ -62,7 +62,18 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState<{ title: string; reward: string; customer?: string } | null>(null);
+  const [reveal, setReveal] = useState<{ title: string; reward: string; customer?: string } | null>(null);
+  const [countdown, setCountdown] = useState(5);
   const [scannerOpen, setScannerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!reveal) return;
+    setCountdown(5);
+    const i = setInterval(() => setCountdown((c) => (c > 0 ? c - 1 : 0)), 1000);
+    const t = setTimeout(() => setReveal(null), 5000);
+    return () => { clearInterval(i); clearTimeout(t); };
+  }, [reveal]);
+
 
   const verifyCode = async (raw: string, scannedRestaurantId?: string) => {
     const t = raw.trim();
@@ -125,6 +136,11 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
         reward: row.offers?.reward ?? "",
         customer: row.profiles?.full_name ?? row.profiles?.email ?? undefined,
       });
+      setReveal({
+        title: row.offers?.title ?? "Offer",
+        reward: row.offers?.reward ?? "",
+        customer: row.profiles?.full_name ?? row.profiles?.email ?? undefined,
+      });
       setCode("");
       toast.success("Reward verified!");
     }
@@ -182,6 +198,21 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
         onOpenChange={setScannerOpen}
         onResult={onScanned}
       />
+      {reveal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm p-6 animate-in fade-in"
+          onClick={() => setReveal(null)}
+        >
+          <div className="max-w-2xl w-full text-center space-y-6">
+            <CheckCircle2 className="size-20 text-primary mx-auto" />
+            <p className="text-sm uppercase tracking-widest text-muted-foreground">Give the customer</p>
+            <p className="font-serif text-5xl sm:text-7xl font-semibold leading-tight">{reveal.reward}</p>
+            <p className="text-xl text-muted-foreground">{reveal.title}</p>
+            {reveal.customer && <p className="text-sm text-muted-foreground">For: {reveal.customer}</p>}
+            <p className="text-xs text-muted-foreground pt-4">Closing in {countdown}s · tap to dismiss</p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
