@@ -211,6 +211,23 @@ function AIPage() {
 
       {/* Input bar */}
       <div className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto max-w-2xl px-4 pt-3">
+          <Button
+            type="button"
+            variant={live.status === "live" ? "destructive" : "default"}
+            className="w-full"
+            onClick={() => (live.status === "live" || live.status === "connecting" ? live.stop() : live.start())}
+            disabled={live.status === "connecting"}
+          >
+            {live.status === "connecting" ? (
+              <><Loader2 className="size-4 animate-spin" /> Connecting…</>
+            ) : live.status === "live" ? (
+              <><PhoneOff className="size-4" /> End live conversation</>
+            ) : (
+              <><Radio className="size-4" /> Start live voice chat (Gemini)</>
+            )}
+          </Button>
+        </div>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -223,7 +240,7 @@ function AIPage() {
             size="icon"
             variant={listening ? "default" : "outline"}
             onClick={toggleMic}
-            disabled={busy}
+            disabled={busy || live.status === "live"}
             aria-label={listening ? "Stop listening" : "Speak"}
             className={listening ? "animate-pulse" : ""}
           >
@@ -232,10 +249,10 @@ function AIPage() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={listening ? "Listening…" : "Ask about the menu…"}
-            disabled={busy || listening}
+            placeholder={live.status === "live" ? "Live voice active — just talk" : listening ? "Listening…" : "Ask about the menu…"}
+            disabled={busy || listening || live.status === "live"}
           />
-          <Button type="submit" size="icon" disabled={busy || !input.trim()}>
+          <Button type="submit" size="icon" disabled={busy || !input.trim() || live.status === "live"}>
             <Send className="size-4" />
           </Button>
         </form>
