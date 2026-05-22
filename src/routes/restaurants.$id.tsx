@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/lib/auth";
+import { Sparkle } from "lucide-react";
 import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode, X } from "lucide-react";
 import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
