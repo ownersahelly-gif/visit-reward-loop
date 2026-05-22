@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch, Package, Truck, XCircle, Clock, QrCode } from "lucide-react";
+import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch, Package, Truck, XCircle, Clock, QrCode, UtensilsCrossed, Upload, Image as ImageIcon } from "lucide-react";
 import { QrScannerDialog, parseScannedCode } from "@/components/QrScannerDialog";
 import { useServerFn } from "@/lib/edge";
 
@@ -84,9 +84,12 @@ function OwnerPage() {
       <p className="mt-1 text-sm text-muted-foreground">Manage your restaurant, customers and staff.</p>
 
       <Tabs defaultValue="restaurant" className="mt-6">
-        <TabsList className="grid h-auto w-full grid-cols-3 p-1">
+        <TabsList className="grid h-auto w-full grid-cols-4 p-1">
           <TabsTrigger value="restaurant" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
             <Store className="size-3.5 shrink-0" /> <span className="truncate">Restaurant</span>
+          </TabsTrigger>
+          <TabsTrigger value="menu" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
+            <UtensilsCrossed className="size-3.5 shrink-0" /> <span className="truncate">Menu</span>
           </TabsTrigger>
           <TabsTrigger value="customers" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
             <Users className="size-3.5 shrink-0" /> <span className="truncate">Customers</span>
@@ -125,6 +128,10 @@ function OwnerPage() {
               </div>
             </section>
           )}
+        </TabsContent>
+
+        <TabsContent value="menu" className="mt-6">
+          {restaurant ? <MenuPanel restaurantId={restaurant.id} /> : <SetupRestaurantNotice />}
         </TabsContent>
 
         <TabsContent value="customers" className="mt-6">
@@ -919,3 +926,285 @@ function RequestBranchDialog({
   );
 }
 
+
+type MenuItem = {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  category: string | null;
+  photo_url: string | null;
+  sort_order: number;
+  active: boolean;
+};
+
+function MenuPanel({ restaurantId }: { restaurantId: string }) {
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<MenuItem | null>(null);
+  const [open, setOpen] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    setLoading(true);
+    supabase
+      .from("menu_items")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .order("sort_order")
+      .then(({ data }) => {
+        setItems((data ?? []) as MenuItem[]);
+        setLoading(false);
+      });
+  }, [restaurantId, tick]);
+
+  const aiUrl = `${window.location.origin}/ai/${restaurantId}`;
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-5">
+        <div className="flex items-start gap-3">
+          <QrCode className="size-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <h2 className="font-serif text-xl">AI assistant for your guests</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Print a QR code linking to the URL below. Guests scan it and chat with a voice AI that knows your menu.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Input readOnly value={aiUrl} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(aiUrl);
+                  toast.success("Link copied");
+                }}
+              >
+                Copy link
+              </Button>
+              <Button type="button" asChild>
+                <a href={aiUrl} target="_blank" rel="noopener noreferrer">Preview</a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="font-serif text-2xl">Menu</h2>
+          <p className="text-sm text-muted-foreground">Items with photos help the AI show pictures to guests.</p>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditing(null);
+            setOpen(true);
+          }}
+        >
+          <Plus className="size-4" /> Add item
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : items.length === 0 ? (
+        <Card className="p-6 text-center">
+          <ImageIcon className="mx-auto size-8 text-muted-foreground" />
+          <p className="mt-2 text-sm text-muted-foreground">No menu items yet. Add your first dish.</p>
+        </Card>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {items.map((it) => (
+            <MenuItemCard
+              key={it.id}
+              item={it}
+              onEdit={() => {
+                setEditing(it);
+                setOpen(true);
+              }}
+              onChanged={() => setTick((t) => t + 1)}
+            />
+          ))}
+        </div>
+      )}
+
+      <MenuItemDialog
+        open={open}
+        onOpenChange={setOpen}
+        restaurantId={restaurantId}
+        item={editing}
+        onSaved={() => setTick((t) => t + 1)}
+      />
+    </div>
+  );
+}
+
+function MenuItemCard({ item, onEdit, onChanged }: { item: MenuItem; onEdit: () => void; onChanged: () => void }) {
+  const remove = async () => {
+    if (!confirm(`Delete "${item.name}"?`)) return;
+    const { error } = await supabase.from("menu_items").delete().eq("id", item.id);
+    if (error) return toast.error(error.message);
+    onChanged();
+  };
+  const toggleActive = async (active: boolean) => {
+    await supabase.from("menu_items").update({ active }).eq("id", item.id);
+    onChanged();
+  };
+  return (
+    <Card className="overflow-hidden p-0">
+      {item.photo_url ? (
+        <img src={item.photo_url} alt={item.name} className="aspect-video w-full object-cover" />
+      ) : (
+        <div className="grid aspect-video w-full place-items-center bg-secondary text-muted-foreground">
+          <ImageIcon className="size-8" />
+        </div>
+      )}
+      <div className="space-y-2 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-serif text-lg leading-tight">{item.name}</h3>
+            {item.category && <p className="text-xs text-muted-foreground">{item.category}</p>}
+          </div>
+          <Switch checked={item.active} onCheckedChange={toggleActive} />
+        </div>
+        {item.description && <p className="text-sm text-muted-foreground">{item.description}</p>}
+        {item.price != null && <Badge variant="secondary">{item.price} EGP</Badge>}
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" size="sm" onClick={onEdit}>Edit</Button>
+          <Button variant="ghost" size="sm" onClick={remove}><Trash2 className="size-4" /></Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function MenuItemDialog({
+  open,
+  onOpenChange,
+  restaurantId,
+  item,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  restaurantId: string;
+  item: MenuItem | null;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState<string>("");
+  const [category, setCategory] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setName(item?.name ?? "");
+      setDescription(item?.description ?? "");
+      setPrice(item?.price != null ? String(item.price) : "");
+      setCategory(item?.category ?? "");
+      setPhotoUrl(item?.photo_url ?? null);
+    }
+  }, [open, item]);
+
+  const onUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${restaurantId}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("menu-photos").upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("menu-photos").getPublicUrl(path);
+      setPhotoUrl(data.publicUrl);
+      toast.success("Photo uploaded");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
+    if (!name.trim()) return toast.error("Name is required");
+    setBusy(true);
+    try {
+      const payload = {
+        restaurant_id: restaurantId,
+        name: name.trim(),
+        description: description.trim() || null,
+        price: price ? Number(price) : null,
+        category: category.trim() || null,
+        photo_url: photoUrl,
+      };
+      if (item) {
+        const { error } = await supabase.from("menu_items").update(payload).eq("id", item.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("menu_items").insert(payload);
+        if (error) throw error;
+      }
+      toast.success("Saved");
+      onOpenChange(false);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{item ? "Edit menu item" : "Add menu item"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Photo</Label>
+            {photoUrl ? (
+              <div className="relative">
+                <img src={photoUrl} alt="" className="aspect-video w-full rounded-lg object-cover" />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="absolute right-2 top-2"
+                  onClick={() => setPhotoUrl(null)}
+                >
+                  Replace
+                </Button>
+              </div>
+            ) : (
+              <label className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary/40 text-sm text-muted-foreground transition hover:bg-secondary/60">
+                {uploading ? <SpinnerLocal /> : <><Upload className="size-5" /> <span>Upload photo</span></>}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onUpload(f);
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          <div className="space-y-1.5"><Label>Name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Margherita Pizza" /></div>
+          <div className="space-y-1.5"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Tomato, mozzarella, fresh basil" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Price (EGP)</Label><Input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="120" /></div>
+            <div className="space-y-1.5"><Label>Category</Label><Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Pizza, Drinks…" /></div>
+          </div>
+        </div>
+        <DialogFooter><Button onClick={save} disabled={busy || uploading}>{busy ? "Saving…" : "Save"}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SpinnerLocal() {
+  return <span className="inline-block size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />;
+}

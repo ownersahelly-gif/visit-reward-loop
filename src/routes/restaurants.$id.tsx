@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/lib/auth";
 import { Sparkle } from "lucide-react";
-import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode, X } from "lucide-react";
+import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode, X, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
 import { useServerFn } from "@/lib/edge";
@@ -134,6 +134,21 @@ function RestaurantPage() {
       {restaurant.description && (
         <p className="mt-6 max-w-prose text-muted-foreground">{restaurant.description}</p>
       )}
+
+      <Link
+        to="/ai/$restaurantId"
+        params={{ restaurantId: id }}
+        className="mt-6 flex items-center gap-3 rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 p-4 transition hover:from-primary/15 hover:to-primary/10"
+      >
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+          <MessageCircle className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-serif text-base leading-tight">Talk to our AI host</p>
+          <p className="text-xs text-muted-foreground">Ask anything about the menu — with photos & voice</p>
+        </div>
+        <Sparkles className="size-4 text-primary" />
+      </Link>
 
       <section className="mt-8 space-y-5">
         <h2 className="font-serif text-xl">Active offers</h2>

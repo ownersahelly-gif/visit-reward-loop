@@ -108,6 +108,45 @@ export type Database = {
           },
         ]
       }
+      menu_items: {
+        Row: {
+          active: boolean
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          photo_url: string | null
+          price: number | null
+          restaurant_id: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          photo_url?: string | null
+          price?: number | null
+          restaurant_id: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          photo_url?: string | null
+          price?: number | null
+          restaurant_id?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       offers: {
         Row: {
           active: boolean
