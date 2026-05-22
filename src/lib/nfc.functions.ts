@@ -35,8 +35,8 @@ export const setStaffNfcToken = createServerFn({ method: "POST" })
     return { token };
   });
 
-// Customer taps branch card → record redemption attributed to that branch
-export const redeemByNfc = createServerFn({ method: "POST" })
+// Customer taps branch card → record an attendance visit attributed to that branch
+export const stampVisitByNfc = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
@@ -61,13 +61,13 @@ export const redeemByNfc = createServerFn({ method: "POST" })
     // Verify offer belongs to the restaurant
     const { data: offer, error: oErr } = await supabaseAdmin
       .from("offers")
-      .select("id, restaurant_id, required_visits, window_days, title, reward")
+      .select("id, restaurant_id, required_visits, window_days, title")
       .eq("id", data.offerId)
       .maybeSingle();
     if (oErr) throw new Error(oErr.message);
     if (!offer || offer.restaurant_id !== data.restaurantId) throw new Error("Offer not found");
 
-    // Verify the customer is actually eligible (has enough visits in window)
+    // Don't allow over-stamping past required_visits within the window
     const since = new Date(Date.now() - offer.window_days * 86400000).toISOString();
     const { count: visitCount } = await supabaseAdmin
       .from("visits")
@@ -75,26 +75,24 @@ export const redeemByNfc = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .eq("offer_id", offer.id)
       .gte("visited_at", since);
-    if ((visitCount ?? 0) < offer.required_visits) {
-      throw new Error("Reward not unlocked yet");
+    if ((visitCount ?? 0) >= offer.required_visits) {
+      throw new Error("Card already complete — redeem your reward");
     }
 
-    // Insert redemption attributed to the branch staff
-    const { error: rErr } = await supabaseAdmin.from("redemptions").insert({
+    // Insert visit attributed to the branch staff
+    const { error: vErr } = await supabaseAdmin.from("visits").insert({
       user_id: userId,
       offer_id: offer.id,
-      restaurant_id: data.restaurantId,
       verified_by: staff.user_id,
     });
-    if (rErr) throw new Error(rErr.message);
+    if (vErr) throw new Error(vErr.message);
 
-    // Invalidate any open codes for this offer so the dialog auto-closes cleanly
-    await supabaseAdmin
-      .from("redemption_codes")
-      .update({ used_at: new Date().toISOString() })
-      .eq("user_id", userId)
-      .eq("offer_id", offer.id)
-      .is("used_at", null);
-
-    return { ok: true, branch: staff.label ?? "Branch", reward: offer.reward, title: offer.title };
+    return {
+      ok: true,
+      branch: staff.label ?? "Branch",
+      title: offer.title,
+      stamped: (visitCount ?? 0) + 1,
+      required: offer.required_visits,
+    };
   });
+
