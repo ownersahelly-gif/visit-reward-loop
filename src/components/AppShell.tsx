@@ -20,16 +20,40 @@ export function AppShell({ children }: { children: ReactNode }) {
   const showCustomerToggle = isOwner && (isAdmin || isCustomer);
 
   const [isStaff, setIsStaff] = useState(false);
+  const [staffChecked, setStaffChecked] = useState(false);
   useEffect(() => {
-    if (!user) return setIsStaff(false);
+    if (!user) {
+      setIsStaff(false);
+      setStaffChecked(true);
+      return;
+    }
+    setStaffChecked(false);
     (async () => {
       const { count } = await supabase
         .from("restaurant_staff" as any)
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id);
       setIsStaff((count ?? 0) > 0);
+      setStaffChecked(true);
     })();
   }, [user]);
+
+  // Route guard: keep restaurant owners and staff out of the customer flow.
+  // Customers / admins are unaffected. Owners with a customer role (legacy
+  // accounts + admins) keep the toggle and can browse both sides.
+  useEffect(() => {
+    if (!user || !staffChecked) return;
+    const onCustomerSurface =
+      pathname === "/" || pathname.startsWith("/restaurants");
+    if (!onCustomerSurface) return;
+    if (isStaff && !isOwner && !isAdmin && !isCustomer) {
+      router.navigate({ to: "/staff" });
+      return;
+    }
+    if (isOwner && !isCustomer && !isAdmin) {
+      router.navigate({ to: "/owner" });
+    }
+  }, [user, staffChecked, isStaff, isOwner, isAdmin, isCustomer, pathname, router]);
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
