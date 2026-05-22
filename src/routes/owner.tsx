@@ -727,3 +727,88 @@ function RemoveStaffButton({ staffId, onRemoved }: { staffId: string; onRemoved:
     </Button>
   );
 }
+
+function NfcCardSection({ staff, onChanged }: { staff: StaffRow; onChanged: () => void }) {
+  const setToken = useServerFn(setStaffNfcToken);
+  const [token, setToken_] = useState<string | null>(staff.nfc_token);
+  const [busy, setBusy] = useState(false);
+  const [writing, setWriting] = useState(false);
+  const supported = typeof window !== "undefined" && "NDEFReader" in window;
+
+  useEffect(() => { setToken_(staff.nfc_token); }, [staff.nfc_token]);
+
+  const ensureToken = async (regenerate = false) => {
+    setBusy(true);
+    try {
+      const res = await setToken({ data: { staffId: staff.id, regenerate } });
+      setToken_(res.token);
+      onChanged();
+      return res.token;
+    } catch (e: any) {
+      toast.error(e.message);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const writeCard = async () => {
+    const t = token ?? (await ensureToken(false));
+    if (!t) return;
+    if (!supported) {
+      toast.error("Use Chrome on Android to write NFC cards");
+      return;
+    }
+    setWriting(true);
+    try {
+      // @ts-ignore NDEFReader not in lib.dom
+      const writer = new window.NDEFReader();
+      await writer.write({ records: [{ recordType: "text", data: t }] });
+      toast.success("Card programmed. Hand it to this branch.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Couldn't write card");
+    } finally {
+      setWriting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-dashed border-border p-3">
+      <div className="flex items-center gap-2">
+        <Nfc className="size-4 text-primary" />
+        <p className="text-sm font-medium">Branch NFC card</p>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Program a blank NFC card with this branch's token. Customers tap the card to stamp their visit at this branch.
+      </p>
+      {token ? (
+        <p className="mt-2 break-all rounded bg-secondary/50 p-2 font-mono text-[11px]">{token}</p>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">No card linked yet.</p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {!token && (
+          <Button size="sm" onClick={() => ensureToken(false)} disabled={busy}>
+            {busy ? "Generating…" : "Generate token"}
+          </Button>
+        )}
+        {token && (
+          <>
+            <Button size="sm" onClick={writeCard} disabled={writing}>
+              <Nfc className="size-4" /> {writing ? "Tap a card…" : "Write to NFC card"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => ensureToken(true)} disabled={busy}>
+              Regenerate
+            </Button>
+          </>
+        )}
+      </div>
+      {!supported && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          NFC writing requires Chrome on Android. You can still share the token above and write it with any NFC Tools app.
+        </p>
+      )}
+    </div>
+  );
+}
+
