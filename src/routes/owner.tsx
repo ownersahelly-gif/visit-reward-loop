@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch, Package, Truck, XCircle, Clock, QrCode } from "lucide-react";
+import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch, Package, Truck, XCircle, Clock, QrCode, UtensilsCrossed, Upload, Image as ImageIcon } from "lucide-react";
 import { QrScannerDialog, parseScannedCode } from "@/components/QrScannerDialog";
 import { useServerFn } from "@/lib/edge";
 
@@ -84,9 +84,12 @@ function OwnerPage() {
       <p className="mt-1 text-sm text-muted-foreground">Manage your restaurant, customers and staff.</p>
 
       <Tabs defaultValue="restaurant" className="mt-6">
-        <TabsList className="grid h-auto w-full grid-cols-3 p-1">
+        <TabsList className="grid h-auto w-full grid-cols-4 p-1">
           <TabsTrigger value="restaurant" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
             <Store className="size-3.5 shrink-0" /> <span className="truncate">Restaurant</span>
+          </TabsTrigger>
+          <TabsTrigger value="menu" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
+            <UtensilsCrossed className="size-3.5 shrink-0" /> <span className="truncate">Menu</span>
           </TabsTrigger>
           <TabsTrigger value="customers" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
             <Users className="size-3.5 shrink-0" /> <span className="truncate">Customers</span>
@@ -125,6 +128,10 @@ function OwnerPage() {
               </div>
             </section>
           )}
+        </TabsContent>
+
+        <TabsContent value="menu" className="mt-6">
+          {restaurant ? <MenuPanel restaurantId={restaurant.id} /> : <SetupRestaurantNotice />}
         </TabsContent>
 
         <TabsContent value="customers" className="mt-6">
