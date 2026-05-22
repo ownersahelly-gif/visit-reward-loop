@@ -14,7 +14,7 @@ import { Sparkle } from "lucide-react";
 import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode, X } from "lucide-react";
 import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/edge";
 import { stampVisitByNfc, adminTestStampVisit } from "@/lib/nfc.functions";
 
 
