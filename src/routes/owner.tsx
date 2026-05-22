@@ -595,73 +595,77 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
         <div>
           <h2 className="font-serif text-xl">Staff & branches</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add team members or branch accounts. They can only sign in and verify customer reward codes. Tap a row to see the login.
+            Each branch needs an NFC card. Request one from the admin — it's <strong>1000 EGP</strong>, paid cash on delivery.
           </p>
         </div>
-        <AddStaffDialog restaurantId={restaurantId} onAdded={() => setTick((t) => t + 1)} />
+        <RequestBranchDialog
+          restaurantId={restaurantId}
+          existingStaff={rows.map((r) => ({ id: r.id, label: r.label, email: r.profiles?.email ?? null }))}
+          onSubmitted={() => setTick((t) => t + 1)}
+        />
       </div>
 
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No staff yet.</p>
-      ) : (
-        <ul className="divide-y">
-          {rows.map((s) => {
-            const n = scans[s.user_id] ?? 0;
-            return (
-              <li key={s.id} className="flex items-center justify-between gap-3 py-3">
-                <button
-                  type="button"
-                  onClick={() => setOpenRow(s)}
-                  className="min-w-0 flex-1 text-left hover:opacity-80"
-                >
-                  <p className="truncate font-medium">{s.profiles?.full_name ?? s.profiles?.email ?? "Staff member"}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {s.profiles?.email} {s.label ? <>· <span className="text-primary">{s.label}</span></> : null}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    <ScanLine className="mr-1 inline size-3" />
-                    {n} scan{n === 1 ? "" : "s"}
-                  </p>
-                </button>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="whitespace-nowrap">
-                    {n}
-                  </Badge>
-                  <RemoveStaffButton staffId={s.id} onRemoved={() => setTick((t) => t + 1)} />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <BranchRequestsList restaurantId={restaurantId} reloadKey={tick} />
+
+      <div className="pt-2">
+        <h3 className="text-sm font-medium">Active branches</h3>
+        {rows.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">No branches yet. Submit a request above.</p>
+        ) : (
+          <ul className="mt-2 divide-y">
+            {rows.map((s) => {
+              const n = scans[s.user_id] ?? 0;
+              return (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setOpenRow(s)}
+                    className="min-w-0 flex-1 text-left hover:opacity-80"
+                  >
+                    <p className="truncate font-medium">{s.label ?? s.profiles?.full_name ?? "Branch"}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {s.profiles?.email}
+                      {s.nfc_token ? <> · <span className="text-primary">card active</span></> : <> · <span className="text-muted-foreground">no card yet</span></>}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      <ScanLine className="mr-1 inline size-3" />
+                      {n} scan{n === 1 ? "" : "s"}
+                    </p>
+                  </button>
+                  <Badge variant="secondary" className="whitespace-nowrap">{n}</Badge>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
       <Dialog open={!!openRow} onOpenChange={(o) => !o && setOpenRow(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{openRow?.profiles?.full_name ?? "Staff member"}</DialogTitle>
+            <DialogTitle>{openRow?.label ?? openRow?.profiles?.full_name ?? "Branch"}</DialogTitle>
           </DialogHeader>
           {openRow && (
             <div className="space-y-3 text-sm">
-              {openRow.label && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Branch</p>
-                  <p className="font-medium">{openRow.label}</p>
-                </div>
-              )}
               <div>
-                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="text-xs text-muted-foreground">Staff login email</p>
                 <p className="font-mono">{openRow.profiles?.email ?? "—"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Password</p>
-                <p className="font-mono">{openRow.password ?? "— (set before this update)"}</p>
+                <p className="font-mono">{openRow.password ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">NFC card status</p>
+                <p className="font-medium">{openRow.nfc_token ? "Active" : "Not issued yet"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total scans</p>
                 <p className="font-medium">{scans[openRow.user_id] ?? 0}</p>
               </div>
-              <NfcCardSection staff={openRow} onChanged={() => setTick((t) => t + 1)} />
-              <p className="text-xs text-muted-foreground">Share these credentials with your team member. They sign in at the regular login page.</p>
+              <p className="text-xs text-muted-foreground">
+                Lost the card? Use <strong>Request branch → Reissue</strong> to order a replacement.
+              </p>
             </div>
           )}
         </DialogContent>
