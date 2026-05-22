@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch, Package, Truck, XCircle, Clock, QrCode, UtensilsCrossed, Upload, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch, Package, Truck, XCircle, Clock, QrCode, UtensilsCrossed, Upload, Image as ImageIcon, Radio } from "lucide-react";
 import { QrScannerDialog, parseScannedCode } from "@/components/QrScannerDialog";
 import { useServerFn } from "@/lib/edge";
 
@@ -104,6 +104,20 @@ function OwnerPage() {
 
           {restaurant && (
             <VerifyPanel restaurantId={restaurant.id} />
+          )}
+
+          {restaurant && (
+            <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-serif text-base">Test the AI voice assistant</h3>
+                <p className="text-xs text-muted-foreground">Open the customer AI page for your restaurant to try live voice chat.</p>
+              </div>
+              <Button asChild variant="outline">
+                <Link to="/ai/$restaurantId" params={{ restaurantId: restaurant.id }} target="_blank">
+                  <Radio className="size-4" /> Test AI voice
+                </Link>
+              </Button>
+            </Card>
           )}
 
           {restaurant && (
