@@ -174,7 +174,7 @@ function BranchRequestsAdminPanel() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await list({ data: {} as any });
+        const res = await list();
         setRows(res.requests as ReqRow[]);
       } catch (e: any) {
         toast.error(e.message);
