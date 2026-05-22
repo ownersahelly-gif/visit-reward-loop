@@ -23,10 +23,11 @@ function float32ToPCM16Base64(float32: Float32Array): string {
 // Decode base64 16-bit PCM @ 24kHz to a Float32Array suitable for AudioBuffer.
 function base64PCM16ToFloat32(b64: string): Float32Array {
   const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const len = binary.length;
+  const bytes = new Uint8Array(new ArrayBuffer(len));
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
   const dv = new DataView(bytes.buffer);
-  const out = new Float32Array(bytes.length / 2);
+  const out = new Float32Array(new ArrayBuffer((len / 2) * 4));
   for (let i = 0; i < out.length; i++) {
     out[i] = dv.getInt16(i * 2, true) / 0x8000;
   }
