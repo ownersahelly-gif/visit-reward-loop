@@ -75,14 +75,24 @@ export const stampVisitByNfc = createServerFn({ method: "POST" })
     if (oErr) throw new Error(oErr.message);
     if (!offer || offer.restaurant_id !== data.restaurantId) throw new Error("Offer not found");
 
-    // Don't allow over-stamping past required_visits within the window
-    const since = new Date(Date.now() - offer.window_days * 86400000).toISOString();
+    // Cycle starts after the last redemption (or at the rolling window cutoff)
+    const windowCutoff = new Date(Date.now() - offer.window_days * 86400000);
+    const { data: lastRed } = await supabaseAdmin
+      .from("redemptions")
+      .select("redeemed_at")
+      .eq("user_id", userId)
+      .eq("offer_id", offer.id)
+      .order("redeemed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const lastRedeemedAt = lastRed?.redeemed_at ? new Date(lastRed.redeemed_at) : new Date(0);
+    const since = (lastRedeemedAt > windowCutoff ? lastRedeemedAt : windowCutoff).toISOString();
     const { count: visitCount } = await supabaseAdmin
       .from("visits")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("offer_id", offer.id)
-      .gte("visited_at", since);
+      .gt("visited_at", since);
     if ((visitCount ?? 0) >= offer.required_visits) {
       throw new Error("Card already complete — redeem your reward");
     }
