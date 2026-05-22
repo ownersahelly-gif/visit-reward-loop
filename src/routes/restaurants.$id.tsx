@@ -220,8 +220,23 @@ function OfferBlock({
   }, [complete]);
 
   const stampFn = useServerFn(stampVisitByNfc);
+  const adminStampFn = useServerFn(adminTestStampVisit);
   const nfcAbortRef = useRef<AbortController | null>(null);
   const [nfcError, setNfcError] = useState<string | null>(null);
+
+  const adminTestStamp = async () => {
+    if (complete) return;
+    try {
+      const res = await adminStampFn({ data: { restaurantId, offerId: offer.id } });
+      await buzz(40);
+      setJustStamped(stamped);
+      toast.success("Test stamp added (admin)", { description: `Now ${res.stamped}/${res.required}` });
+      onChanged();
+      setTimeout(() => setJustStamped(null), 800);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to stamp");
+    }
+  };
 
   const cancelNfc = () => {
     nfcAbortRef.current?.abort();
