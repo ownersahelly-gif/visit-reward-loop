@@ -95,6 +95,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="inline-flex items-center gap-1.5"><Store className="size-3.5" /> Dashboard</span>
               </Link>
             )}
+            {user && !isStaff && (isCustomer || isAdmin || !isOwner) && (
+              <Link to="/rewards" className="rounded-md px-2 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground">
+                <span className="inline-flex items-center gap-1.5"><Trophy className="size-3.5" /> Rewards</span>
+              </Link>
+            )}
             {isStaff && (
               <Link to="/staff" className="rounded-md px-2 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground">
                 <span className="inline-flex items-center gap-1.5"><ScanLine className="size-3.5" /> Verify</span>
