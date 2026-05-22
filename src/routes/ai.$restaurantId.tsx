@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Mic, MicOff, Send, Volume2, VolumeX, ArrowLeft, Loader2 } from "lucide-react";
+import { Mic, MicOff, Send, Volume2, VolumeX, ArrowLeft, Loader2, Radio, PhoneOff } from "lucide-react";
 import { toast } from "sonner";
+import { useGeminiLive } from "@/lib/use-gemini-live";
 
 export const Route = createFileRoute("/ai/$restaurantId")({ component: AIPage });
 
