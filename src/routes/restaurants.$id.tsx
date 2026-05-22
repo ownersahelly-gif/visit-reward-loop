@@ -15,7 +15,7 @@ import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode, X } 
 import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
 import { useServerFn } from "@tanstack/react-start";
-import { stampVisitByNfc } from "@/lib/nfc.functions";
+import { stampVisitByNfc, adminTestStampVisit } from "@/lib/nfc.functions";
 
 
 export const Route = createFileRoute("/restaurants/$id")({ component: RestaurantPage });
