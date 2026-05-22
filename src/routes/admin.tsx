@@ -70,8 +70,16 @@ function AdminPage() {
 
   return (
     <AppShell>
-      <h1 className="font-serif text-3xl font-semibold">Network admin</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Approve partner restaurants to make them visible to customers.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl font-semibold">Network admin</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Approve partner restaurants to make them visible to customers.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleSignOut}>
+          <LogOut className="size-4" />
+          Sign out
+        </Button>
+      </div>
 
       <div className="mt-8 space-y-3">
         {items.map((r) => (
