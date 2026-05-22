@@ -48,7 +48,7 @@ export const addStaffAccount = createServerFn({ method: "POST" })
 
     const { error: linkErr } = await supabaseAdmin
       .from("restaurant_staff")
-      .insert({ restaurant_id: data.restaurantId, user_id: userIdToLink, label: data.label ?? null });
+      .insert({ restaurant_id: data.restaurantId, user_id: userIdToLink, label: data.label ?? null, password: data.password });
     if (linkErr && !linkErr.message.includes("duplicate")) throw new Error(linkErr.message);
 
     return { ok: true };
