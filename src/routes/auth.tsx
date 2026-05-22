@@ -24,6 +24,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [birthday, setBirthday] = useState("");
   const [role, setRole] = useState<"customer" | "owner">("customer");
   const [busy, setBusy] = useState(false);
 
@@ -32,19 +33,15 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name: fullName },
+            data: { full_name: fullName, birthday, intended_role: role },
             emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
-        if (data.user && role === "owner") {
-          // also add owner role alongside the default 'customer' role
-          await supabase.from("user_roles").insert({ user_id: data.user.id, role: "owner" });
-        }
         toast.success("Welcome to Stamp!");
         nav({ to: role === "owner" ? "/owner" : "/" });
       } else {
@@ -80,6 +77,10 @@ function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="name">Full name</Label>
                   <Input id="name" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jamie Rivera" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bday">Birthday <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                  <Input id="bday" type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>I am a…</Label>
