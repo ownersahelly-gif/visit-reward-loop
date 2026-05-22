@@ -248,3 +248,89 @@ function OfferCard({ offer, stamps, onChanged }: { offer: Offer; stamps: number;
     </Card>
   );
 }
+
+function VerifyPanel({ restaurantId }: { restaurantId: string }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [lastVerified, setLastVerified] = useState<{ title: string; reward: string } | null>(null);
+
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = code.trim();
+    if (trimmed.length !== 6) return toast.error("Enter the 6-digit code");
+    setBusy(true);
+    try {
+      // Find an unused, unexpired code for this restaurant
+      const { data: rows, error } = await supabase
+        .from("redemption_codes")
+        .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward)")
+        .eq("restaurant_id", restaurantId)
+        .eq("code", trimmed)
+        .is("used_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .limit(1);
+      if (error) throw error;
+      const row = rows?.[0] as any;
+      if (!row) {
+        toast.error("Invalid or expired code");
+        return;
+      }
+      // Mark used
+      const { error: upErr } = await supabase
+        .from("redemption_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .is("used_at", null);
+      if (upErr) throw upErr;
+      // Insert redemption (cycle complete)
+      const { error: redErr } = await supabase.from("redemptions").insert({
+        user_id: row.user_id,
+        offer_id: row.offer_id,
+        restaurant_id: restaurantId,
+      });
+      if (redErr) throw redErr;
+      setLastVerified({ title: row.offers?.title ?? "Offer", reward: row.offers?.reward ?? "" });
+      setCode("");
+      toast.success("Reward verified!");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2">
+        <ScanLine className="size-5 text-primary" />
+        <h2 className="font-serif text-xl">Verify customer reward</h2>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Ask the customer to open their completed offer and read out the 6-digit code.
+      </p>
+      <form onSubmit={verify} className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <Input
+          inputMode="numeric"
+          pattern="\d{6}"
+          maxLength={6}
+          placeholder="6-digit code"
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+          className="font-mono text-2xl tracking-[0.4em]"
+        />
+        <Button type="submit" disabled={busy || code.length !== 6} size="lg">
+          {busy ? "Verifying…" : "Verify"}
+        </Button>
+      </form>
+      {lastVerified && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/10 p-3 text-sm text-primary">
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+          <div>
+            <p className="font-medium">{lastVerified.title} — redeemed</p>
+            <p className="opacity-80">Give the customer: {lastVerified.reward}</p>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
