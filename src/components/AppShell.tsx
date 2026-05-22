@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Store, ShieldCheck, Coffee, User, ScanLine } from "lucide-react";
+import { LogOut, Store, ShieldCheck, Coffee, User, ScanLine, Trophy } from "lucide-react";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, roles, signOut } = useAuth();
@@ -93,6 +93,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             {!showCustomerToggle && isOwner && (
               <Link to="/owner" className="rounded-md px-2 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground">
                 <span className="inline-flex items-center gap-1.5"><Store className="size-3.5" /> Dashboard</span>
+              </Link>
+            )}
+            {user && !isStaff && (isCustomer || isAdmin || !isOwner) && (
+              <Link to="/rewards" className="rounded-md px-2 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground">
+                <span className="inline-flex items-center gap-1.5"><Trophy className="size-3.5" /> Rewards</span>
               </Link>
             )}
             {isStaff && (

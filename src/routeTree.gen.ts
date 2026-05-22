@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StaffRouteImport } from './routes/staff'
+import { Route as RewardsRouteImport } from './routes/rewards'
 import { Route as OwnerRouteImport } from './routes/owner'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -19,6 +20,11 @@ import { Route as RestaurantsIdRouteImport } from './routes/restaurants.$id'
 const StaffRoute = StaffRouteImport.update({
   id: '/staff',
   path: '/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RewardsRoute = RewardsRouteImport.update({
+  id: '/rewards',
+  path: '/rewards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OwnerRoute = OwnerRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/owner': typeof OwnerRoute
+  '/rewards': typeof RewardsRoute
   '/staff': typeof StaffRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/owner': typeof OwnerRoute
+  '/rewards': typeof RewardsRoute
   '/staff': typeof StaffRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
 }
@@ -69,20 +77,36 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/owner': typeof OwnerRoute
+  '/rewards': typeof RewardsRoute
   '/staff': typeof StaffRoute
   '/restaurants/$id': typeof RestaurantsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/auth' | '/owner' | '/staff' | '/restaurants/$id'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/owner'
+    | '/rewards'
+    | '/staff'
+    | '/restaurants/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/auth' | '/owner' | '/staff' | '/restaurants/$id'
+  to:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/owner'
+    | '/rewards'
+    | '/staff'
+    | '/restaurants/$id'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/auth'
     | '/owner'
+    | '/rewards'
     | '/staff'
     | '/restaurants/$id'
   fileRoutesById: FileRoutesById
@@ -92,6 +116,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
   OwnerRoute: typeof OwnerRoute
+  RewardsRoute: typeof RewardsRoute
   StaffRoute: typeof StaffRoute
   RestaurantsIdRoute: typeof RestaurantsIdRoute
 }
@@ -103,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/staff'
       fullPath: '/staff'
       preLoaderRoute: typeof StaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rewards': {
+      id: '/rewards'
+      path: '/rewards'
+      fullPath: '/rewards'
+      preLoaderRoute: typeof RewardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/owner': {
@@ -148,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
   OwnerRoute: OwnerRoute,
+  RewardsRoute: RewardsRoute,
   StaffRoute: StaffRoute,
   RestaurantsIdRoute: RestaurantsIdRoute,
 }

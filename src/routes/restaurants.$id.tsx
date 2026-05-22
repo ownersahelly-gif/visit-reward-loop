@@ -10,11 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/lib/auth";
+import { Sparkle } from "lucide-react";
 import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode, X } from "lucide-react";
 import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
 import { useServerFn } from "@tanstack/react-start";
-import { stampVisitByNfc } from "@/lib/nfc.functions";
+import { stampVisitByNfc, adminTestStampVisit } from "@/lib/nfc.functions";
 
 
 export const Route = createFileRoute("/restaurants/$id")({ component: RestaurantPage });
@@ -187,7 +188,8 @@ function OfferBlock({
   redemptions: Redemption[];
   onChanged: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  const isAdmin = roles.includes("admin");
 
   // Only count visits AFTER the last redemption AND within the rolling window.
   const lastRedeemedAt = redemptions
@@ -218,8 +220,23 @@ function OfferBlock({
   }, [complete]);
 
   const stampFn = useServerFn(stampVisitByNfc);
+  const adminStampFn = useServerFn(adminTestStampVisit);
   const nfcAbortRef = useRef<AbortController | null>(null);
   const [nfcError, setNfcError] = useState<string | null>(null);
+
+  const adminTestStamp = async () => {
+    if (complete) return;
+    try {
+      const res = await adminStampFn({ data: { restaurantId, offerId: offer.id } });
+      await buzz(40);
+      setJustStamped(stamped);
+      toast.success("Test stamp added (admin)", { description: `Now ${res.stamped}/${res.required}` });
+      onChanged();
+      setTimeout(() => setJustStamped(null), 800);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to stamp");
+    }
+  };
 
   const cancelNfc = () => {
     nfcAbortRef.current?.abort();
@@ -409,6 +426,18 @@ function OfferBlock({
             )}
             {nfcError && (
               <p className="text-center text-xs text-destructive">{nfcError}</p>
+            )}
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full border-dashed"
+                onClick={adminTestStamp}
+                disabled={scanning}
+              >
+                <Sparkle className="size-3.5" /> Admin: test stamp (no card)
+              </Button>
             )}
           </div>
         )}
