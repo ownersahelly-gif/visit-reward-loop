@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode } from "lucide-react";
+import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode, Nfc } from "lucide-react";
 import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
+import { useServerFn } from "@tanstack/react-start";
+import { redeemByNfc } from "@/lib/nfc.functions";
 
 export const Route = createFileRoute("/restaurants/$id")({ component: RestaurantPage });
 
