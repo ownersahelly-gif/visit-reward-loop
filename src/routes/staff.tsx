@@ -62,7 +62,18 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState<{ title: string; reward: string; customer?: string } | null>(null);
+  const [reveal, setReveal] = useState<{ title: string; reward: string; customer?: string } | null>(null);
+  const [countdown, setCountdown] = useState(5);
   const [scannerOpen, setScannerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!reveal) return;
+    setCountdown(5);
+    const i = setInterval(() => setCountdown((c) => (c > 0 ? c - 1 : 0)), 1000);
+    const t = setTimeout(() => setReveal(null), 5000);
+    return () => { clearInterval(i); clearTimeout(t); };
+  }, [reveal]);
+
 
   const verifyCode = async (raw: string, scannedRestaurantId?: string) => {
     const t = raw.trim();
