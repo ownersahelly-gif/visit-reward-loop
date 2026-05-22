@@ -42,7 +42,7 @@ npx cap open android   # Android Studio
 
 ## Enabling NFC on iOS (one-time, in Xcode)
 
-The NFC plugin is `@exxili/capacitor-nfc`. After `npx cap sync ios`:
+The NFC plugin is `@capgo/capacitor-nfc`. After `npx cap sync ios`:
 
 1. In Xcode, open the **App** target → **Signing & Capabilities**.
 2. Click **+ Capability** and add **Near Field Communication Tag Reading**.
