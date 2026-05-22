@@ -16,8 +16,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Toggle is shown only when the account legitimately has both sides
   // (admins, or older accounts with both roles). Pure restaurant owners stay
-  // in the dashboard only.
-  const showCustomerToggle = isOwner && (isAdmin || isCustomer);
+  // in the dashboard only. Staff never see the customer toggle.
+  // (showCustomerToggle is computed below after isStaff is known)
 
   const [isStaff, setIsStaff] = useState(false);
   const [staffChecked, setStaffChecked] = useState(false);
@@ -38,6 +38,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     })();
   }, [user]);
 
+  const showCustomerToggle = isOwner && (isAdmin || isCustomer) && !isStaff;
+
   // Route guard: keep restaurant owners and staff out of the customer flow.
   // Customers / admins are unaffected. Owners with a customer role (legacy
   // accounts + admins) keep the toggle and can browse both sides.
@@ -46,7 +48,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     const onCustomerSurface =
       pathname === "/" || pathname.startsWith("/restaurants");
     if (!onCustomerSurface) return;
-    if (isStaff && !isOwner && !isAdmin && !isCustomer) {
+    // Staff accounts are restricted to /staff even if they also have the
+    // auto-assigned customer role (handle_new_user trigger always grants it).
+    if (isStaff && !isAdmin) {
       router.navigate({ to: "/staff" });
       return;
     }

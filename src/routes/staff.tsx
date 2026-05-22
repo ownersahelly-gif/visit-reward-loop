@@ -5,9 +5,10 @@ import { AppShell } from "@/components/AppShell";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { QrScannerDialog, parseScannedCode } from "@/components/QrScannerDialog";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { ScanLine, CheckCircle2 } from "lucide-react";
+import { ScanLine, CheckCircle2, QrCode } from "lucide-react";
 
 export const Route = createFileRoute("/staff")({ component: StaffPage });
 
@@ -60,17 +61,20 @@ function StaffPage() {
 function VerifyForm({ restaurantId }: { restaurantId: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [last, setLast] = useState<{ title: string; reward: string } | null>(null);
+  const [last, setLast] = useState<{ title: string; reward: string; customer?: string } | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
-  const verify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const t = code.trim();
-    if (t.length !== 6) return toast.error("Enter the 6-digit code");
+  const verifyCode = async (raw: string) => {
+    const t = raw.trim();
+    if (t.length !== 6) {
+      toast.error("Invalid code");
+      return;
+    }
     setBusy(true);
     try {
       const { data: rows, error } = await supabase
         .from("redemption_codes")
-        .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward)")
+        .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward), profiles:profiles!inner(full_name, email)")
         .eq("restaurant_id", restaurantId)
         .eq("code", t)
         .is("used_at", null)
@@ -78,25 +82,75 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
         .limit(1);
       if (error) throw error;
       const row = rows?.[0] as any;
-      if (!row) return toast.error("Invalid or expired code");
-      const { error: u1 } = await supabase.from("redemption_codes").update({ used_at: new Date().toISOString() }).eq("id", row.id).is("used_at", null);
-      if (u1) throw u1;
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      const { error: u2 } = await supabase.from("redemptions").insert({ user_id: row.user_id, offer_id: row.offer_id, restaurant_id: restaurantId, verified_by: authUser?.id ?? null });
-      if (u2) throw u2;
-      setLast({ title: row.offers?.title ?? "Offer", reward: row.offers?.reward ?? "" });
-      setCode("");
-      toast.success("Reward verified!");
+      if (!row) {
+        // retry without profile join
+        const { data: rows2 } = await supabase
+          .from("redemption_codes")
+          .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward)")
+          .eq("restaurant_id", restaurantId)
+          .eq("code", t)
+          .is("used_at", null)
+          .gt("expires_at", new Date().toISOString())
+          .limit(1);
+        const r2 = rows2?.[0] as any;
+        if (!r2) {
+          toast.error("Invalid or expired code");
+          return;
+        }
+        await finalize(r2);
+        return;
+      }
+      await finalize(row);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
       setBusy(false);
     }
+
+    async function finalize(row: any) {
+      const { error: u1 } = await supabase
+        .from("redemption_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .is("used_at", null);
+      if (u1) throw u1;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { error: u2 } = await supabase.from("redemptions").insert({
+        user_id: row.user_id,
+        offer_id: row.offer_id,
+        restaurant_id: restaurantId,
+        verified_by: authUser?.id ?? null,
+      });
+      if (u2) throw u2;
+      setLast({
+        title: row.offers?.title ?? "Offer",
+        reward: row.offers?.reward ?? "",
+        customer: row.profiles?.full_name ?? row.profiles?.email ?? undefined,
+      });
+      setCode("");
+      toast.success("Reward verified!");
+    }
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    verifyCode(code);
+  };
+
+  const onScanned = (raw: string) => {
+    setScannerOpen(false);
+    const parsed = parseScannedCode(raw);
+    if (!parsed) {
+      toast.error("Unrecognized QR code");
+      return;
+    }
+    setCode(parsed);
+    verifyCode(parsed);
   };
 
   return (
     <>
-      <form onSubmit={verify} className="flex flex-col gap-3 sm:flex-row">
+      <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
         <Input
           inputMode="numeric"
           pattern="\d{6}"
@@ -110,6 +164,10 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
           <ScanLine className="size-4" />
           {busy ? "Verifying…" : "Verify"}
         </Button>
+        <Button type="button" variant="outline" size="lg" onClick={() => setScannerOpen(true)}>
+          <QrCode className="size-4" />
+          Scan QR
+        </Button>
       </form>
       {last && (
         <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/10 p-3 text-sm text-primary">
@@ -117,9 +175,15 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
           <div>
             <p className="font-medium">{last.title} — redeemed</p>
             <p className="opacity-80">Give the customer: {last.reward}</p>
+            {last.customer && <p className="text-xs opacity-70">For: {last.customer}</p>}
           </div>
         </div>
       )}
+      <QrScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onResult={onScanned}
+      />
     </>
   );
 }
