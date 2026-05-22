@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode } from "lucide-react";
+import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode, Nfc } from "lucide-react";
 import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
+import { useServerFn } from "@tanstack/react-start";
+import { redeemByNfc } from "@/lib/nfc.functions";
 
 export const Route = createFileRoute("/restaurants/$id")({ component: RestaurantPage });
 
@@ -499,9 +501,10 @@ function OtpDialog({
           {/* Code body */}
           <div className="space-y-5 px-6 pb-7 pt-2 text-center">
             <Tabs defaultValue="code" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="code"><KeyRound className="size-3.5" /> Code</TabsTrigger>
                 <TabsTrigger value="qr"><QrCode className="size-3.5" /> QR</TabsTrigger>
+                <TabsTrigger value="nfc"><Nfc className="size-3.5" /> Tap</TabsTrigger>
               </TabsList>
               <TabsContent value="code" className="mt-4">
                 <div className="rounded-2xl bg-primary/8 px-3 py-5">
@@ -523,6 +526,9 @@ function OtpDialog({
                   )}
                 </div>
               </TabsContent>
+              <TabsContent value="nfc" className="mt-4">
+                <NfcTapPanel restaurantId={restaurantId} offerId={offer.id} />
+              </TabsContent>
             </Tabs>
             <div className="space-y-2">
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
@@ -543,3 +549,95 @@ function OtpDialog({
     </Dialog>
   );
 }
+
+function NfcTapPanel({ restaurantId, offerId }: { restaurantId: string; offerId: string }) {
+  const redeem = useServerFn(redeemByNfc);
+  const [status, setStatus] = useState<"idle" | "scanning" | "done" | "error">("idle");
+  const [message, setMessage] = useState<string>("");
+  const abortRef = useRef<AbortController | null>(null);
+
+  const supported = typeof window !== "undefined" && "NDEFReader" in window;
+
+  const start = async () => {
+    if (!supported) {
+      setStatus("error");
+      setMessage("This phone doesn't support NFC reading. Use Chrome on Android, or use the QR / Code tab instead.");
+      return;
+    }
+    try {
+      setStatus("scanning");
+      setMessage("Hold the branch card to the back of your phone…");
+      // @ts-ignore - NDEFReader is not in lib.dom
+      const reader = new window.NDEFReader();
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      await reader.scan({ signal: ctrl.signal });
+      reader.onreading = async (event: any) => {
+        let token = "";
+        try {
+          for (const record of event.message.records) {
+            if (record.recordType === "text" || record.recordType === "url" || record.recordType === "mime") {
+              const decoder = new TextDecoder(record.encoding ?? "utf-8");
+              const text = decoder.decode(record.data).trim();
+              const m = text.match(/([a-f0-9]{16,})/i);
+              if (m) { token = m[1]; break; }
+            }
+          }
+          if (!token && event.serialNumber) {
+            token = String(event.serialNumber).replace(/[^a-f0-9]/gi, "");
+          }
+          if (!token) throw new Error("Card is empty or unreadable");
+          const res = await redeem({ data: { restaurantId, offerId, nfcToken: token } });
+          setStatus("done");
+          setMessage(`Stamped at ${res.branch}`);
+          celebrate();
+          toast.success("🎉 Reward redeemed!", { description: res.reward });
+        } catch (e: any) {
+          setStatus("error");
+          setMessage(e?.message ?? "Couldn't redeem with that card");
+        }
+      };
+    } catch (e: any) {
+      setStatus("error");
+      setMessage(e?.message ?? "Couldn't start NFC reader");
+    }
+  };
+
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
+  return (
+    <div className="space-y-3 text-center">
+      <div className="mx-auto grid place-items-center rounded-2xl bg-primary/8 p-6">
+        <Nfc className={`size-16 ${status === "scanning" ? "animate-pulse text-primary" : "text-primary/80"}`} />
+      </div>
+      {status === "idle" && (
+        <Button onClick={start} size="lg" className="w-full">
+          <Nfc className="size-4" /> Tap card to stamp visit
+        </Button>
+      )}
+      {status === "scanning" && (
+        <>
+          <p className="text-sm text-muted-foreground">{message}</p>
+          <Button variant="ghost" onClick={() => { abortRef.current?.abort(); setStatus("idle"); }}>
+            Cancel
+          </Button>
+        </>
+      )}
+      {status === "done" && (
+        <p className="text-sm font-medium text-primary">{message}</p>
+      )}
+      {status === "error" && (
+        <>
+          <p className="text-sm text-destructive">{message}</p>
+          <Button onClick={start} variant="outline" size="sm">Try again</Button>
+        </>
+      )}
+      {!supported && status === "idle" && (
+        <p className="text-xs text-muted-foreground">NFC reading requires Chrome on an Android phone.</p>
+      )}
+    </div>
+  );
+}
+
