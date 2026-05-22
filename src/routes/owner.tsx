@@ -93,6 +93,12 @@ function OwnerPage() {
         )}
       </div>
 
+      {restaurant && restaurant.status === "active" && (
+        <section className="mt-10">
+          <VerifyPanel restaurantId={restaurant.id} />
+        </section>
+      )}
+
       {restaurant && (
         <section className="mt-10 space-y-4">
           <div className="flex items-end justify-between">
