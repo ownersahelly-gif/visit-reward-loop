@@ -476,6 +476,7 @@ type StaffRow = { id: string; user_id: string; label: string | null; profiles?: 
 
 function StaffPanel({ restaurantId }: { restaurantId: string }) {
   const [rows, setRows] = useState<StaffRow[]>([]);
+  const [scans, setScans] = useState<Record<string, number>>({});
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -484,7 +485,6 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
         .from("restaurant_staff" as any)
         .select("id, user_id, label, profiles:profiles!restaurant_staff_user_id_fkey(full_name, email)")
         .eq("restaurant_id", restaurantId);
-      // fallback: separate fetch if relation not auto-discoverable
       let list = (data ?? []) as any[];
       if (list.length && !list[0].profiles) {
         const ids = list.map((l) => l.user_id);
@@ -492,6 +492,19 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
         list = list.map((l) => ({ ...l, profiles: (profs ?? []).find((p) => p.id === l.user_id) ?? null }));
       }
       setRows(list);
+
+      // Scan counts per staff member
+      const { data: reds } = await supabase
+        .from("redemptions")
+        .select("verified_by")
+        .eq("restaurant_id", restaurantId)
+        .not("verified_by", "is", null);
+      const counts: Record<string, number> = {};
+      (reds ?? []).forEach((r: any) => {
+        if (!r.verified_by) return;
+        counts[r.verified_by] = (counts[r.verified_by] ?? 0) + 1;
+      });
+      setScans(counts);
     })();
   }, [restaurantId, tick]);
 
@@ -511,17 +524,25 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
         <p className="text-sm text-muted-foreground">No staff yet.</p>
       ) : (
         <ul className="divide-y">
-          {rows.map((s) => (
-            <li key={s.id} className="flex items-center justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="truncate font-medium">{s.profiles?.full_name ?? s.profiles?.email ?? "Staff member"}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {s.profiles?.email} {s.label ? <>· <span className="text-primary">{s.label}</span></> : null}
-                </p>
-              </div>
-              <RemoveStaffButton staffId={s.id} onRemoved={() => setTick((t) => t + 1)} />
-            </li>
-          ))}
+          {rows.map((s) => {
+            const n = scans[s.user_id] ?? 0;
+            return (
+              <li key={s.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{s.profiles?.full_name ?? s.profiles?.email ?? "Staff member"}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {s.profiles?.email} {s.label ? <>· <span className="text-primary">{s.label}</span></> : null}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="whitespace-nowrap">
+                    <ScanLine className="mr-1 size-3" /> {n} scan{n === 1 ? "" : "s"}
+                  </Badge>
+                  <RemoveStaffButton staffId={s.id} onRemoved={() => setTick((t) => t + 1)} />
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>
