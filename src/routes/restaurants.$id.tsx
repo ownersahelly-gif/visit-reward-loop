@@ -188,7 +188,8 @@ function OfferBlock({
   redemptions: Redemption[];
   onChanged: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  const isAdmin = roles.includes("admin");
 
   // Only count visits AFTER the last redemption AND within the rolling window.
   const lastRedeemedAt = redemptions
