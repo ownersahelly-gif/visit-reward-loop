@@ -41,24 +41,27 @@ Deno.serve(async (req) => {
     if (!restaurant) return json({ error: "Restaurant not found" }, 404);
 
     const menuText = (menu ?? []).map((m: any) =>
-      `- ${m.name}${m.category ? ` (${m.category})` : ""}${m.price != null ? ` — $${m.price}` : ""}${m.description ? `: ${m.description}` : ""}`
-    ).join("\n") || "(no menu items uploaded yet)";
+      `- ${m.name}${m.category ? ` (${m.category})` : ""}${m.price != null ? ` — ${m.price}` : ""}${m.description ? `: ${m.description}` : ""}`
+    ).join("\n") || "(no menu items)";
 
-    const offersText = (offers ?? []).map((o: any) =>
-      `- ${o.title}: ${o.description ?? ""} Reward: ${o.reward}. ${o.required_visits} visits in ${o.window_days} days.`
-    ).join("\n") || "(no active offers)";
+    const bestsellersText = (menu ?? []).slice(0, 5).map((m: any) => `- ${m.name}`).join("\n") || "(none)";
 
-    const systemInstruction = `You are the friendly AI host for "${restaurant.name}"${restaurant.cuisine ? `, a ${restaurant.cuisine} restaurant` : ""}. Speak warmly and naturally, like a real human host — short, conversational sentences. Greet the guest by welcoming them to ${restaurant.name}. Answer questions about the menu, prices, and offers. Recommend dishes when asked.
+    const offersText = (offers ?? []).length
+      ? `\nCurrent offers:\n${(offers as any[]).map((o) => `- ${o.title}: ${o.reward}`).join("\n")}`
+      : "";
 
-ABOUT: ${restaurant.description ?? "(no description)"}
+    const systemInstruction = `You are a friendly voice assistant for restaurant ${restaurant.name}.
+You speak Arabic or English depending on what the customer uses.
+If spoken to in Egyptian Arabic dialect, reply in Egyptian Arabic dialect.
+Keep answers short and conversational since this is a voice interaction — no bullet points or long lists.
+Only answer questions about the menu, prices, bestsellers, and restaurant info.
 
-MENU:
+Menu:
 ${menuText}
 
-CURRENT OFFERS:
-${offersText}
-
-If asked something you don't know, say so honestly and suggest they ask a staff member.`;
+Bestsellers:
+${bestsellersText}
+${offersText}`;
 
     // Mint ephemeral token (valid ~30 min, session uses last ~10 min after first connect)
     const now = Date.now();
@@ -75,9 +78,11 @@ If asked something you don't know, say so honestly and suggest they ask a staff 
           expireTime,
           newSessionExpireTime,
           bidiGenerateContentSetup: {
-            model: "models/gemini-2.5-flash-preview-native-audio-dialog",
+            model: "models/gemini-2.0-flash-live-001",
             generationConfig: { responseModalities: ["AUDIO"] },
             systemInstruction: { parts: [{ text: systemInstruction }] },
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
           },
         }),
       }
