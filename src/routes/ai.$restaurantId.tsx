@@ -31,6 +31,11 @@ function AIPage() {
   const recognitionRef = useRef<any>(null);
   const greetedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const live = useGeminiLive(restaurantId);
+
+  useEffect(() => {
+    if (live.error) toast.error(live.error);
+  }, [live.error]);
 
   useEffect(() => {
     supabase.from("restaurants").select("name, cuisine, image_url").eq("id", restaurantId).maybeSingle().then(({ data }) => {
