@@ -9,7 +9,8 @@ function randomToken() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Owner generates / regenerates the NFC token tied to a branch (staff row)
+// ADMIN ONLY: generate / regenerate the NFC token tied to a branch (staff row).
+// Owners can no longer mint NFC tokens; they go through the branch request flow.
 export const setStaffNfcToken = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -17,14 +18,21 @@ export const setStaffNfcToken = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { userId } = context;
+    const { data: adminRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!adminRow) throw new Error("Admin only — owners request cards from the admin");
+
     const { data: row, error } = await supabaseAdmin
       .from("restaurant_staff")
-      .select("id, nfc_token, restaurants(owner_id)")
+      .select("id, nfc_token")
       .eq("id", data.staffId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    // @ts-ignore relational
-    if (!row || row.restaurants?.owner_id !== userId) throw new Error("Not authorized");
+    if (!row) throw new Error("Staff not found");
     if (row.nfc_token && !data.regenerate) return { token: row.nfc_token };
     const token = randomToken();
     const { error: uErr } = await supabaseAdmin

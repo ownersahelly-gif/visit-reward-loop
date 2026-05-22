@@ -14,6 +14,100 @@ export type Database = {
   }
   public: {
     Tables: {
+      branch_requests: {
+        Row: {
+          accepted_at: string | null
+          branch_label: string
+          created_at: string
+          currency: string
+          delivered_at: string | null
+          existing_staff_id: string | null
+          fee_amount: number
+          id: string
+          notes: string | null
+          paid_at: string | null
+          reject_reason: string | null
+          request_type: string
+          requested_by: string
+          restaurant_id: string
+          resulting_staff_id: string | null
+          shipped_at: string | null
+          shipping_address: string | null
+          staff_email: string | null
+          staff_full_name: string | null
+          staff_password: string | null
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          branch_label: string
+          created_at?: string
+          currency?: string
+          delivered_at?: string | null
+          existing_staff_id?: string | null
+          fee_amount?: number
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          reject_reason?: string | null
+          request_type?: string
+          requested_by: string
+          restaurant_id: string
+          resulting_staff_id?: string | null
+          shipped_at?: string | null
+          shipping_address?: string | null
+          staff_email?: string | null
+          staff_full_name?: string | null
+          staff_password?: string | null
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          branch_label?: string
+          created_at?: string
+          currency?: string
+          delivered_at?: string | null
+          existing_staff_id?: string | null
+          fee_amount?: number
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          reject_reason?: string | null
+          request_type?: string
+          requested_by?: string
+          restaurant_id?: string
+          resulting_staff_id?: string | null
+          shipped_at?: string | null
+          shipping_address?: string | null
+          staff_email?: string | null
+          staff_full_name?: string | null
+          staff_password?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_requests_existing_staff_id_fkey"
+            columns: ["existing_staff_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_requests_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_requests_resulting_staff_id_fkey"
+            columns: ["resulting_staff_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offers: {
         Row: {
           active: boolean
