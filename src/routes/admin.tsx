@@ -15,10 +15,15 @@ export const Route = createFileRoute("/admin")({ component: AdminPage });
 type Restaurant = { id: string; name: string; cuisine: string | null; status: string; created_at: string };
 
 function AdminPage() {
-  const { user, roles, loading } = useAuth();
+  const { user, roles, loading, signOut } = useAuth();
   const nav = useNavigate();
   const [items, setItems] = useState<Restaurant[]>([]);
   const [tick, setTick] = useState(0);
+
+  const handleSignOut = async () => {
+    await signOut();
+    nav({ to: "/auth" });
+  };
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
