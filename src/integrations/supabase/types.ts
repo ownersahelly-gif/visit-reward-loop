@@ -177,6 +177,7 @@ export type Database = {
           created_at: string
           id: string
           label: string | null
+          password: string | null
           restaurant_id: string
           user_id: string
         }
@@ -184,6 +185,7 @@ export type Database = {
           created_at?: string
           id?: string
           label?: string | null
+          password?: string | null
           restaurant_id: string
           user_id: string
         }
@@ -191,6 +193,7 @@ export type Database = {
           created_at?: string
           id?: string
           label?: string | null
+          password?: string | null
           restaurant_id?: string
           user_id?: string
         }

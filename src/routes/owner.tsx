@@ -472,21 +472,25 @@ function CustomersPanel({ restaurantId }: { restaurantId: string }) {
   );
 }
 
-type StaffRow = { id: string; user_id: string; label: string | null; profiles?: { full_name: string | null; email: string | null } | null };
+type StaffRow = { id: string; user_id: string; label: string | null; password: string | null; profiles?: { full_name: string | null; email: string | null } | null };
 
 function StaffPanel({ restaurantId }: { restaurantId: string }) {
   const [rows, setRows] = useState<StaffRow[]>([]);
   const [scans, setScans] = useState<Record<string, number>>({});
   const [tick, setTick] = useState(0);
+  const [openRow, setOpenRow] = useState<StaffRow | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("restaurant_staff" as any)
-        .select("id, user_id, label, profiles:profiles!restaurant_staff_user_id_fkey(full_name, email)")
+        .select("id, user_id, label, password")
         .eq("restaurant_id", restaurantId);
+      if (error) {
+        console.error("staff load error", error);
+      }
       let list = (data ?? []) as any[];
-      if (list.length && !list[0].profiles) {
+      if (list.length) {
         const ids = list.map((l) => l.user_id);
         const { data: profs } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
         list = list.map((l) => ({ ...l, profiles: (profs ?? []).find((p) => p.id === l.user_id) ?? null }));
@@ -514,7 +518,7 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
         <div>
           <h2 className="font-serif text-xl">Staff & branches</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add team members or branch accounts. They can only sign in and verify customer reward codes.
+            Add team members or branch accounts. They can only sign in and verify customer reward codes. Tap a row to see the login.
           </p>
         </div>
         <AddStaffDialog restaurantId={restaurantId} onAdded={() => setTick((t) => t + 1)} />
@@ -528,15 +532,23 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
             const n = scans[s.user_id] ?? 0;
             return (
               <li key={s.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenRow(s)}
+                  className="min-w-0 flex-1 text-left hover:opacity-80"
+                >
                   <p className="truncate font-medium">{s.profiles?.full_name ?? s.profiles?.email ?? "Staff member"}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {s.profiles?.email} {s.label ? <>· <span className="text-primary">{s.label}</span></> : null}
                   </p>
-                </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <ScanLine className="mr-1 inline size-3" />
+                    {n} scan{n === 1 ? "" : "s"}
+                  </p>
+                </button>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="whitespace-nowrap">
-                    <ScanLine className="mr-1 size-3" /> {n} scan{n === 1 ? "" : "s"}
+                    {n}
                   </Badge>
                   <RemoveStaffButton staffId={s.id} onRemoved={() => setTick((t) => t + 1)} />
                 </div>
@@ -545,6 +557,37 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
           })}
         </ul>
       )}
+
+      <Dialog open={!!openRow} onOpenChange={(o) => !o && setOpenRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{openRow?.profiles?.full_name ?? "Staff member"}</DialogTitle>
+          </DialogHeader>
+          {openRow && (
+            <div className="space-y-3 text-sm">
+              {openRow.label && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Branch</p>
+                  <p className="font-medium">{openRow.label}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="font-mono">{openRow.profiles?.email ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Password</p>
+                <p className="font-mono">{openRow.password ?? "— (set before this update)"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total scans</p>
+                <p className="font-medium">{scans[openRow.user_id] ?? 0}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">Share these credentials with your team member. They sign in at the regular login page.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
