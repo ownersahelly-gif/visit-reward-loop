@@ -136,6 +136,11 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
         reward: row.offers?.reward ?? "",
         customer: row.profiles?.full_name ?? row.profiles?.email ?? undefined,
       });
+      setReveal({
+        title: row.offers?.title ?? "Offer",
+        reward: row.offers?.reward ?? "",
+        customer: row.profiles?.full_name ?? row.profiles?.email ?? undefined,
+      });
       setCode("");
       toast.success("Reward verified!");
     }
