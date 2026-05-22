@@ -111,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 }}
               >
                 <LogOut className="size-3.5" />
-                <span className="hidden sm:inline">Sign out</span>
+                <span className="ml-1">Sign out</span>
               </Button>
             ) : (
               <Link to="/auth">

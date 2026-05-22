@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
@@ -13,10 +15,15 @@ export const Route = createFileRoute("/admin")({ component: AdminPage });
 type Restaurant = { id: string; name: string; cuisine: string | null; status: string; created_at: string };
 
 function AdminPage() {
-  const { user, roles, loading } = useAuth();
+  const { user, roles, loading, signOut } = useAuth();
   const nav = useNavigate();
   const [items, setItems] = useState<Restaurant[]>([]);
   const [tick, setTick] = useState(0);
+
+  const handleSignOut = async () => {
+    await signOut();
+    nav({ to: "/auth" });
+  };
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
@@ -63,8 +70,16 @@ function AdminPage() {
 
   return (
     <AppShell>
-      <h1 className="font-serif text-3xl font-semibold">Network admin</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Approve partner restaurants to make them visible to customers.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl font-semibold">Network admin</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Approve partner restaurants to make them visible to customers.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleSignOut}>
+          <LogOut className="size-4" />
+          Sign out
+        </Button>
+      </div>
 
       <div className="mt-8 space-y-3">
         {items.map((r) => (
