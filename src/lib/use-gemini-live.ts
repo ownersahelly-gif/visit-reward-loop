@@ -1,5 +1,4 @@
 // Gemini Live API client hook — real-time voice in / voice out via WebSocket.
-// Uses an ephemeral token minted by the gemini-live-token edge function.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GoogleGenAI, Modality, type Session } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
-// Encode Float32 PCM to base64 16-bit little-endian PCM (what Live API expects).
 function float32ToPCM16Base64(float32: Float32Array): string {
   const pcm16 = new Int16Array(float32.length);
   for (let i = 0; i < float32.length; i++) {
@@ -20,7 +18,6 @@ function float32ToPCM16Base64(float32: Float32Array): string {
   return btoa(binary);
 }
 
-// Decode base64 16-bit PCM @ 24kHz to a Float32Array suitable for AudioBuffer.
 function base64PCM16ToFloat32(b64: string): Float32Array {
   const binary = atob(b64);
   const len = binary.length;
@@ -35,10 +32,13 @@ function base64PCM16ToFloat32(b64: string): Float32Array {
 }
 
 export type LiveStatus = "idle" | "connecting" | "live" | "error";
+export type TranscriptEntry = { role: "user" | "assistant"; text: string };
 
 export function useGeminiLive(restaurantId: string) {
   const [status, setStatus] = useState<LiveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [muted, setMutedState] = useState(false);
 
   const sessionRef = useRef<Session | null>(null);
   const inputCtxRef = useRef<AudioContext | null>(null);
@@ -47,6 +47,20 @@ export function useGeminiLive(restaurantId: string) {
   const procNodeRef = useRef<ScriptProcessorNode | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const playHeadRef = useRef<number>(0);
+  const mutedRef = useRef(false);
+  const pendingRef = useRef<{ user: string; assistant: string }>({ user: "", assistant: "" });
+
+  const setMuted = useCallback((v: boolean) => {
+    mutedRef.current = v;
+    setMutedState(v);
+  }, []);
+
+  const flush = useCallback((role: "user" | "assistant") => {
+    const text = pendingRef.current[role].trim();
+    if (!text) return;
+    setTranscript((t) => [...t, { role, text }]);
+    pendingRef.current[role] = "";
+  }, []);
 
   const stop = useCallback(() => {
     try { procNodeRef.current?.disconnect(); } catch {}
@@ -62,14 +76,17 @@ export function useGeminiLive(restaurantId: string) {
     outputCtxRef.current = null;
     sessionRef.current = null;
     playHeadRef.current = 0;
+    mutedRef.current = false;
+    setMutedState(false);
+    pendingRef.current = { user: "", assistant: "" };
     setStatus("idle");
   }, []);
 
   const start = useCallback(async () => {
     setError(null);
     setStatus("connecting");
+    setTranscript([]);
     try {
-      // 1. Get ephemeral token
       const { data, error: fnErr } = await supabase.functions.invoke("gemini-live-token", {
         body: { restaurantId },
       });
@@ -77,25 +94,28 @@ export function useGeminiLive(restaurantId: string) {
       if ((data as any).error) throw new Error((data as any).error);
       const token = (data as any).token as string;
 
-      // 2. Set up output audio context (for assistant playback)
       const OutCtx: typeof AudioContext =
         (window as any).AudioContext || (window as any).webkitAudioContext;
       const outCtx = new OutCtx({ sampleRate: OUTPUT_SAMPLE_RATE });
       outputCtxRef.current = outCtx;
       playHeadRef.current = outCtx.currentTime;
 
-      // 3. Connect to Gemini Live
       const ai = new GoogleGenAI({
         apiKey: token,
         httpOptions: { apiVersion: "v1alpha" },
       });
       const session = await ai.live.connect({
-        model: "gemini-2.5-flash-preview-native-audio-dialog",
-        config: { responseModalities: [Modality.AUDIO] },
+        model: "gemini-2.0-flash-live-001",
+        config: {
+          responseModalities: [Modality.AUDIO],
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
+        } as any,
         callbacks: {
           onopen: () => setStatus("live"),
           onmessage: (msg: any) => {
-            const audioPart = msg?.serverContent?.modelTurn?.parts?.find(
+            const sc = msg?.serverContent;
+            const audioPart = sc?.modelTurn?.parts?.find(
               (p: any) => p?.inlineData?.mimeType?.startsWith("audio/")
             );
             const b64 = audioPart?.inlineData?.data;
@@ -111,9 +131,17 @@ export function useGeminiLive(restaurantId: string) {
               src.start(startAt);
               playHeadRef.current = startAt + buf.duration;
             }
-            if (msg?.serverContent?.interrupted) {
-              // model was interrupted — reset playhead so next audio starts immediately
+            const inT = sc?.inputTranscription?.text;
+            if (inT) pendingRef.current.user += inT;
+            const outT = sc?.outputTranscription?.text;
+            if (outT) pendingRef.current.assistant += outT;
+            if (sc?.turnComplete) {
+              flush("user");
+              flush("assistant");
+            }
+            if (sc?.interrupted) {
               playHeadRef.current = outputCtxRef.current?.currentTime ?? 0;
+              flush("assistant");
             }
           },
           onerror: (e: any) => {
@@ -121,14 +149,11 @@ export function useGeminiLive(restaurantId: string) {
             setError(e?.message ?? "Live session error");
             setStatus("error");
           },
-          onclose: () => {
-            setStatus("idle");
-          },
+          onclose: () => setStatus("idle"),
         },
       });
       sessionRef.current = session;
 
-      // 4. Capture mic and stream as PCM16 @ 16kHz
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, sampleRate: INPUT_SAMPLE_RATE, echoCancellation: true, noiseSuppression: true },
       });
@@ -138,11 +163,10 @@ export function useGeminiLive(restaurantId: string) {
       inputCtxRef.current = inCtx;
       const source = inCtx.createMediaStreamSource(stream);
       sourceNodeRef.current = source;
-      // ScriptProcessorNode is deprecated but works everywhere including iOS Safari.
       const proc = inCtx.createScriptProcessor(4096, 1, 1);
       procNodeRef.current = proc;
       proc.onaudioprocess = (ev) => {
-        if (!sessionRef.current) return;
+        if (!sessionRef.current || mutedRef.current) return;
         const ch = ev.inputBuffer.getChannelData(0);
         const b64 = float32ToPCM16Base64(ch);
         try {
@@ -161,9 +185,9 @@ export function useGeminiLive(restaurantId: string) {
       setStatus("error");
       stop();
     }
-  }, [restaurantId, stop]);
+  }, [restaurantId, stop, flush]);
 
   useEffect(() => () => stop(), [stop]);
 
-  return { status, error, start, stop };
+  return { status, error, start, stop, transcript, muted, setMuted };
 }
