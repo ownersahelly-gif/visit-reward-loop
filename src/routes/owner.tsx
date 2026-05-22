@@ -543,7 +543,7 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
     (async () => {
       const { data, error } = await supabase
         .from("restaurant_staff" as any)
-        .select("id, user_id, label, password")
+        .select("id, user_id, label, password, nfc_token")
         .eq("restaurant_id", restaurantId);
       if (error) {
         console.error("staff load error", error);
