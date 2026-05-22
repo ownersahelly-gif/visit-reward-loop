@@ -1,23 +1,51 @@
-# Wrapping with Capacitor for App Store / Play Store
+# Building the iOS / Android app with Capacitor
 
-Capacitor is already installed (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`, `@capacitor/ios`, `@capacitor/haptics`) and `capacitor.config.ts` is configured.
+The web app is a plain Vite SPA, so it produces a static `dist/index.html`
+that Capacitor can bundle directly into a native app — no server required.
 
-Run these locally (you need Xcode for iOS and Android Studio for Android):
+## Prerequisites (one-time, on your Mac)
+- Xcode 15+ from the App Store
+- Apple ID configured in Xcode (Settings → Accounts)
+- Node 20+, `bun` or `npm`
+
+## First-time setup
 
 ```bash
-# 1. Build the web app
-bun run build
-
-# 2. Add native platforms (one-time)
-bunx cap add android
-bunx cap add ios
-
-# 3. Sync after every web build
-bunx cap sync
-
-# 4. Open in IDE
-bunx cap open android   # Android Studio → run / generate signed APK / AAB
-bunx cap open ios       # Xcode → run / archive for App Store
+bun install
+bun run build           # outputs dist/index.html
+npx cap add ios         # only the first time
+npx cap sync ios        # copies dist/ into the iOS app
+npx cap open ios        # opens Xcode
 ```
 
-The app uses `navigator.vibrate` in the browser and `@capacitor/haptics` automatically when running natively (see `src/lib/haptics.ts`).
+In Xcode:
+1. Select the **App** target.
+2. Open the **Signing & Capabilities** tab.
+3. Set **Team** to your Apple ID (free personal team is fine for local testing).
+4. Plug in your iPhone, pick it as the run destination, hit **Run** ⌘R.
+
+## Iterating after web changes
+
+```bash
+bun run build
+npx cap sync ios
+# then re-run from Xcode
+```
+
+## Android (same idea)
+
+```bash
+npx cap add android
+npx cap sync android
+npx cap open android   # Android Studio
+```
+
+## Notes
+- The app talks to Lovable Cloud (Supabase) over HTTPS from inside the
+  native shell. No additional configuration is needed — `src/integrations/supabase/client.ts`
+  already points at the production project.
+- All backend logic lives in the `app-api` Edge Function
+  (`supabase/functions/app-api/`). It deploys automatically when you push
+  through Lovable; outside Lovable, deploy with `npx supabase functions deploy app-api`.
+- Haptics use `@capacitor/haptics` natively and `navigator.vibrate` in the browser
+  (see `src/lib/haptics.ts`).
