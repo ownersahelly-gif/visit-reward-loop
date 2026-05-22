@@ -103,7 +103,7 @@ export function useGeminiLive(restaurantId: string) {
               const ctx = outputCtxRef.current;
               const f32 = base64PCM16ToFloat32(b64);
               const buf = ctx.createBuffer(1, f32.length, OUTPUT_SAMPLE_RATE);
-              buf.copyToChannel(f32 as unknown as Float32Array, 0);
+              buf.getChannelData(0).set(f32);
               const src = ctx.createBufferSource();
               src.buffer = buf;
               src.connect(ctx.destination);
