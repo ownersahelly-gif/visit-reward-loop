@@ -60,17 +60,23 @@ export type Database = {
       }
       profiles: {
         Row: {
+          birthday: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
         }
         Insert: {
+          birthday?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id: string
         }
         Update: {
+          birthday?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
         }
@@ -156,6 +162,38 @@ export type Database = {
           },
           {
             foreignKeyName: "redemptions_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_staff: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          restaurant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          restaurant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          restaurant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_staff_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
