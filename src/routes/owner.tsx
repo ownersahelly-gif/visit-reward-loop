@@ -413,14 +413,16 @@ function CustomersPanel({ restaurantId }: { restaurantId: string }) {
       const { data: offers } = await supabase.from("offers").select("id").eq("restaurant_id", restaurantId);
       const offerIds = (offers ?? []).map((o) => o.id);
       const visitsRes = offerIds.length
-        ? await supabase.from("visits").select("user_id, offer_id").in("offer_id", offerIds)
+        ? await supabase
+            .from("visits")
+            .select("user_id, offer_id, verified_by, visited_at")
+            .in("offer_id", offerIds)
         : { data: [] as any[] };
       const visits = visitsRes.data ?? [];
       const { data: reds } = await supabase
         .from("redemptions")
-        .select("user_id, verified_by, redeemed_at")
-        .eq("restaurant_id", restaurantId)
-        .order("redeemed_at", { ascending: false });
+        .select("user_id, redeemed_at")
+        .eq("restaurant_id", restaurantId);
       const { data: staff } = await supabase
         .from("restaurant_staff" as any)
         .select("user_id, label")
@@ -434,18 +436,18 @@ function CustomersPanel({ restaurantId }: { restaurantId: string }) {
       const counts: Record<string, C> = {};
       const mk = (): C => ({ v: 0, r: 0, branches: new Set(), lastBranch: null, lastAt: null });
       visits.forEach((v: any) => {
-        counts[v.user_id] = counts[v.user_id] ?? mk();
-        counts[v.user_id].v++;
+        const c = (counts[v.user_id] = counts[v.user_id] ?? mk());
+        c.v++;
+        const label = v.verified_by ? (branchByStaff[v.verified_by] ?? "Unknown branch") : "Unverified";
+        c.branches.add(label);
+        if (!c.lastAt || v.visited_at > c.lastAt) {
+          c.lastAt = v.visited_at;
+          c.lastBranch = label;
+        }
       });
       (reds ?? []).forEach((r: any) => {
         const c = (counts[r.user_id] = counts[r.user_id] ?? mk());
         c.r++;
-        const label = r.verified_by ? (branchByStaff[r.verified_by] ?? "Owner") : "Owner";
-        c.branches.add(label);
-        if (!c.lastAt || r.redeemed_at > c.lastAt) {
-          c.lastAt = r.redeemed_at;
-          c.lastBranch = label;
-        }
       });
 
       const userIds = Object.keys(counts);
@@ -472,18 +474,32 @@ function CustomersPanel({ restaurantId }: { restaurantId: string }) {
 
     load();
 
+    const offerIdSet = new Set<string>();
     const channel = supabase
-      .channel(`owner-redemptions-${restaurantId}`)
+      .channel(`owner-visits-${restaurantId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "visits" },
+        (payload: any) => {
+          // Reload if the visit belongs to one of our offers (cheap re-fetch)
+          if (offerIdSet.size === 0 || offerIdSet.has(payload.new?.offer_id)) load();
+        },
+      )
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "redemptions", filter: `restaurant_id=eq.${restaurantId}` },
         () => load(),
       )
       .subscribe();
+    // Track our offer ids so the visits filter is fast
+    supabase.from("offers").select("id").eq("restaurant_id", restaurantId).then(({ data }) => {
+      (data ?? []).forEach((o: any) => offerIdSet.add(o.id));
+    });
     return () => {
       supabase.removeChannel(channel);
     };
   }, [restaurantId]);
+
 
   return (
     <Card className="p-5">
