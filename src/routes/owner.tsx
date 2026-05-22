@@ -396,6 +396,9 @@ type CustomerRow = {
   birthday: string | null;
   visits: number;
   rewards: number;
+  branches: string[];
+  lastBranch: string | null;
+  lastAt: string | null;
 };
 
 function CustomersPanel({ restaurantId }: { restaurantId: string }) {
@@ -403,41 +406,87 @@ function CustomersPanel({ restaurantId }: { restaurantId: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    const load = async () => {
       setLoading(true);
       const { data: offers } = await supabase.from("offers").select("id").eq("restaurant_id", restaurantId);
       const offerIds = (offers ?? []).map((o) => o.id);
-      if (offerIds.length === 0) {
-        setRows([]); setLoading(false); return;
-      }
-      const { data: visits } = await supabase.from("visits").select("user_id, offer_id").in("offer_id", offerIds);
-      const { data: reds } = await supabase.from("redemptions").select("user_id").eq("restaurant_id", restaurantId);
-      const counts: Record<string, { v: number; r: number }> = {};
-      (visits ?? []).forEach((v) => { counts[v.user_id] = counts[v.user_id] ?? { v: 0, r: 0 }; counts[v.user_id].v++; });
-      (reds ?? []).forEach((r) => { counts[r.user_id] = counts[r.user_id] ?? { v: 0, r: 0 }; counts[r.user_id].r++; });
+      const visitsRes = offerIds.length
+        ? await supabase.from("visits").select("user_id, offer_id").in("offer_id", offerIds)
+        : { data: [] as any[] };
+      const visits = visitsRes.data ?? [];
+      const { data: reds } = await supabase
+        .from("redemptions")
+        .select("user_id, verified_by, redeemed_at")
+        .eq("restaurant_id", restaurantId)
+        .order("redeemed_at", { ascending: false });
+      const { data: staff } = await supabase
+        .from("restaurant_staff" as any)
+        .select("user_id, label")
+        .eq("restaurant_id", restaurantId);
+      const branchByStaff: Record<string, string> = {};
+      (staff ?? []).forEach((s: any) => {
+        branchByStaff[s.user_id] = s.label || "Main branch";
+      });
+
+      type C = { v: number; r: number; branches: Set<string>; lastBranch: string | null; lastAt: string | null };
+      const counts: Record<string, C> = {};
+      const mk = (): C => ({ v: 0, r: 0, branches: new Set(), lastBranch: null, lastAt: null });
+      visits.forEach((v: any) => {
+        counts[v.user_id] = counts[v.user_id] ?? mk();
+        counts[v.user_id].v++;
+      });
+      (reds ?? []).forEach((r: any) => {
+        const c = (counts[r.user_id] = counts[r.user_id] ?? mk());
+        c.r++;
+        const label = r.verified_by ? (branchByStaff[r.verified_by] ?? "Owner") : "Owner";
+        c.branches.add(label);
+        if (!c.lastAt || r.redeemed_at > c.lastAt) {
+          c.lastAt = r.redeemed_at;
+          c.lastBranch = label;
+        }
+      });
+
       const userIds = Object.keys(counts);
       if (userIds.length === 0) { setRows([]); setLoading(false); return; }
       const { data: profiles } = await supabase.from("profiles").select("id, full_name, email, birthday").in("id", userIds);
       const list: CustomerRow[] = userIds.map((uid) => {
         const p = (profiles ?? []).find((x) => x.id === uid);
+        const c = counts[uid];
         return {
           user_id: uid,
           full_name: p?.full_name ?? null,
           email: (p as any)?.email ?? null,
           birthday: (p as any)?.birthday ?? null,
-          visits: counts[uid].v,
-          rewards: counts[uid].r,
+          visits: c.v,
+          rewards: c.r,
+          branches: Array.from(c.branches),
+          lastBranch: c.lastBranch,
+          lastAt: c.lastAt,
         };
-      }).sort((a, b) => b.visits - a.visits);
+      }).sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? "") || b.visits - a.visits);
       setRows(list);
       setLoading(false);
-    })();
+    };
+
+    load();
+
+    const channel = supabase
+      .channel(`owner-redemptions-${restaurantId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "redemptions", filter: `restaurant_id=eq.${restaurantId}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [restaurantId]);
 
   return (
     <Card className="p-5">
       <h2 className="font-serif text-xl">Customer database</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Everyone who has stamped a visit with you.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Everyone who has stamped a visit with you. Updates live as staff scan.</p>
       {loading ? (
         <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
       ) : rows.length === 0 ? (
@@ -450,6 +499,8 @@ function CustomersPanel({ restaurantId }: { restaurantId: string }) {
                 <th className="py-2 pr-2">Name</th>
                 <th className="py-2 pr-2">Email</th>
                 <th className="py-2 pr-2">Birthday</th>
+                <th className="py-2 pr-2">Last branch</th>
+                <th className="py-2 pr-2">All branches</th>
                 <th className="py-2 pr-2 text-right">Visits</th>
                 <th className="py-2 pr-2 text-right">Rewards</th>
               </tr>
@@ -460,6 +511,12 @@ function CustomersPanel({ restaurantId }: { restaurantId: string }) {
                   <td className="py-2 pr-2 font-medium">{r.full_name ?? "—"}</td>
                   <td className="py-2 pr-2 text-muted-foreground">{r.email ?? "—"}</td>
                   <td className="py-2 pr-2 text-muted-foreground">{r.birthday ?? "—"}</td>
+                  <td className="py-2 pr-2">
+                    {r.lastBranch ? <Badge variant="secondary">{r.lastBranch}</Badge> : <span className="text-muted-foreground">—</span>}
+                  </td>
+                  <td className="py-2 pr-2 text-muted-foreground">
+                    {r.branches.length ? r.branches.join(", ") : "—"}
+                  </td>
                   <td className="py-2 pr-2 text-right">{r.visits}</td>
                   <td className="py-2 pr-2 text-right">{r.rewards}</td>
                 </tr>
