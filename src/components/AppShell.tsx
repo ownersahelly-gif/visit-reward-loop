@@ -46,7 +46,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     const onCustomerSurface =
       pathname === "/" || pathname.startsWith("/restaurants");
     if (!onCustomerSurface) return;
-    if (isStaff && !isOwner && !isAdmin && !isCustomer) {
+    // Staff accounts are restricted to /staff even if they also have the
+    // auto-assigned customer role (handle_new_user trigger always grants it).
+    if (isStaff && !isAdmin) {
       router.navigate({ to: "/staff" });
       return;
     }
