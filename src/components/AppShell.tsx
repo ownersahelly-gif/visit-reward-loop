@@ -14,9 +14,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isCustomer = roles.includes("customer");
   const inOwnerView = pathname.startsWith("/owner");
 
-  // Toggle is shown only when the user truly has both customer and owner roles
-  // (admins or test accounts). Real restaurant owners stay in the dashboard.
-  const showCustomerToggle = isOwner && (isAdmin || (isCustomer && !isOwnerOnly(roles)));
+  // Toggle is shown only when the account legitimately has both sides
+  // (admins, or older accounts with both roles). Pure restaurant owners stay
+  // in the dashboard only.
+  const showCustomerToggle = isOwner && (isAdmin || isCustomer);
 
   const [isStaff, setIsStaff] = useState(false);
   useEffect(() => {
@@ -99,9 +100,4 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-4 sm:py-8">{children}</main>
     </div>
   );
-}
-
-// owner-only = owner role present, customer role absent
-function isOwnerOnly(roles: string[]) {
-  return roles.includes("owner") && !roles.includes("customer");
 }
