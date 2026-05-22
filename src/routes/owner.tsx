@@ -642,6 +642,7 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
                 <p className="text-xs text-muted-foreground">Total scans</p>
                 <p className="font-medium">{scans[openRow.user_id] ?? 0}</p>
               </div>
+              <NfcCardSection staff={openRow} onChanged={() => setTick((t) => t + 1)} />
               <p className="text-xs text-muted-foreground">Share these credentials with your team member. They sign in at the regular login page.</p>
             </div>
           )}
