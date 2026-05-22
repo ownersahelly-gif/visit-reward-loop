@@ -9,10 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, ScanLine, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { addStaffAccount, removeStaffAccount } from "@/lib/staff.functions";
 
 export const Route = createFileRoute("/owner")({ component: OwnerPage });
 
@@ -25,7 +29,7 @@ function OwnerPage() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [customerCount, setCustomerCount] = useState<Record<string, number>>({});
-  const [refreshTick, setRefreshTick] = useState(0);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
@@ -52,7 +56,7 @@ function OwnerPage() {
         }
       }
     })();
-  }, [user, refreshTick]);
+  }, [user, tick]);
 
   if (loading) return <AppShell><p>Loading…</p></AppShell>;
   if (!roles.includes("owner")) {
@@ -72,56 +76,93 @@ function OwnerPage() {
   return (
     <AppShell>
       <h1 className="font-serif text-3xl font-semibold">Partner dashboard</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Set up your restaurant profile and loyalty offers.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Manage your restaurant, customers and staff.</p>
 
-      <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <RestaurantForm restaurant={restaurant} onSaved={() => setRefreshTick((t) => t + 1)} />
-        {restaurant && (
-          <Card className="p-5">
-            <h2 className="font-serif text-xl">Status</h2>
-            <div className="mt-3 flex items-center gap-2">
-              <Badge variant={restaurant.status === "active" ? "default" : "secondary"}>
-                {restaurant.status === "active" ? "Active partner" : "Pending approval"}
-              </Badge>
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              {restaurant.status === "active"
-                ? "Your restaurant is live to all customers."
-                : "An admin needs to approve your collaboration before customers can stamp visits."}
-            </p>
-          </Card>
-        )}
-      </div>
+      <Tabs defaultValue="restaurant" className="mt-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="restaurant"><Store className="mr-1.5 size-3.5" /> Restaurant</TabsTrigger>
+          <TabsTrigger value="customers" disabled={!restaurant}><Users className="mr-1.5 size-3.5" /> Customers</TabsTrigger>
+          <TabsTrigger value="staff" disabled={!restaurant}><GitBranch className="mr-1.5 size-3.5" /> Staff & branches</TabsTrigger>
+        </TabsList>
 
-      {restaurant && restaurant.status === "active" && (
-        <section className="mt-10">
-          <VerifyPanel restaurantId={restaurant.id} />
-        </section>
-      )}
+        <TabsContent value="restaurant" className="mt-6 space-y-6">
+          <CollapsibleRestaurant restaurant={restaurant} onSaved={() => setTick((t) => t + 1)} />
 
-      {restaurant && (
-        <section className="mt-10 space-y-4">
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="font-serif text-2xl">Offers</h2>
-              <p className="text-sm text-muted-foreground">Goals customers can chase to earn a reward.</p>
-            </div>
-            <OfferDialog restaurantId={restaurant.id} onSaved={() => setRefreshTick((t) => t + 1)} />
-          </div>
-          {offers.length === 0 && <p className="text-sm text-muted-foreground">No offers yet.</p>}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {offers.map((o) => (
-              <OfferCard
-                key={o.id}
-                offer={o}
-                stamps={customerCount[o.id] ?? 0}
-                onChanged={() => setRefreshTick((t) => t + 1)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+          {restaurant && restaurant.status === "active" && (
+            <VerifyPanel restaurantId={restaurant.id} />
+          )}
+
+          {restaurant && (
+            <section className="space-y-4">
+              <div className="flex items-end justify-between">
+                <div>
+                  <h2 className="font-serif text-2xl">Offers</h2>
+                  <p className="text-sm text-muted-foreground">Goals customers can chase to earn a reward.</p>
+                </div>
+                <OfferDialog restaurantId={restaurant.id} onSaved={() => setTick((t) => t + 1)} />
+              </div>
+              {offers.length === 0 && <p className="text-sm text-muted-foreground">No offers yet.</p>}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {offers.map((o) => (
+                  <OfferCard
+                    key={o.id}
+                    offer={o}
+                    stamps={customerCount[o.id] ?? 0}
+                    onChanged={() => setTick((t) => t + 1)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </TabsContent>
+
+        <TabsContent value="customers" className="mt-6">
+          {restaurant && <CustomersPanel restaurantId={restaurant.id} />}
+        </TabsContent>
+
+        <TabsContent value="staff" className="mt-6">
+          {restaurant && <StaffPanel restaurantId={restaurant.id} />}
+        </TabsContent>
+      </Tabs>
     </AppShell>
+  );
+}
+
+function CollapsibleRestaurant({ restaurant, onSaved }: { restaurant: Restaurant | null; onSaved: () => void }) {
+  const [open, setOpen] = useState(!restaurant);
+  return (
+    <Card className="overflow-hidden p-0">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-5 text-left transition hover:bg-secondary/40">
+          <div className="min-w-0">
+            <h2 className="font-serif text-xl truncate">{restaurant?.name ?? "Create your restaurant"}</h2>
+            <div className="mt-1 flex items-center gap-2">
+              {restaurant ? (
+                <Badge variant={restaurant.status === "active" ? "default" : "secondary"}>
+                  {restaurant.status === "active" ? "Active partner" : "Pending approval"}
+                </Badge>
+              ) : (
+                <p className="text-xs text-muted-foreground">Tap to set up your profile</p>
+              )}
+              {restaurant?.cuisine && <span className="text-xs text-muted-foreground">{restaurant.cuisine}</span>}
+            </div>
+          </div>
+          <ChevronDown className={`size-5 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="border-t border-border">
+          <div className="p-5">
+            <RestaurantForm restaurant={restaurant} onSaved={onSaved} />
+            {restaurant && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {restaurant.status === "active"
+                  ? "Your restaurant is live to all customers."
+                  : "An admin needs to approve your collaboration before customers can stamp visits."}
+              </p>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 }
 
@@ -162,16 +203,13 @@ function RestaurantForm({ restaurant, onSaved }: { restaurant: Restaurant | null
   };
 
   return (
-    <Card className="p-5">
-      <h2 className="font-serif text-xl">{restaurant ? "Your restaurant" : "Create your restaurant"}</h2>
-      <form onSubmit={save} className="mt-4 space-y-3">
-        <div className="space-y-1.5"><Label>Name</Label><Input required value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <div className="space-y-1.5"><Label>Cuisine</Label><Input value={cuisine} onChange={(e) => setCuisine(e.target.value)} placeholder="Italian, Café, …" /></div>
-        <div className="space-y-1.5"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
-        <div className="space-y-1.5"><Label>Image URL</Label><Input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" /></div>
-        <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
-      </form>
-    </Card>
+    <form onSubmit={save} className="space-y-3">
+      <div className="space-y-1.5"><Label>Name</Label><Input required value={name} onChange={(e) => setName(e.target.value)} /></div>
+      <div className="space-y-1.5"><Label>Cuisine</Label><Input value={cuisine} onChange={(e) => setCuisine(e.target.value)} placeholder="Italian, Café, …" /></div>
+      <div className="space-y-1.5"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
+      <div className="space-y-1.5"><Label>Image URL</Label><Input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" /></div>
+      <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
+    </form>
   );
 }
 
@@ -260,7 +298,6 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
     if (trimmed.length !== 6) return toast.error("Enter the 6-digit code");
     setBusy(true);
     try {
-      // Find an unused, unexpired code for this restaurant
       const { data: rows, error } = await supabase
         .from("redemption_codes")
         .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward)")
@@ -275,14 +312,12 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
         toast.error("Invalid or expired code");
         return;
       }
-      // Mark used
       const { error: upErr } = await supabase
         .from("redemption_codes")
         .update({ used_at: new Date().toISOString() })
         .eq("id", row.id)
         .is("used_at", null);
       if (upErr) throw upErr;
-      // Insert redemption (cycle complete)
       const { error: redErr } = await supabase.from("redemptions").insert({
         user_id: row.user_id,
         offer_id: row.offer_id,
@@ -332,5 +367,220 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
         </div>
       )}
     </Card>
+  );
+}
+
+type CustomerRow = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  birthday: string | null;
+  visits: number;
+  rewards: number;
+};
+
+function CustomersPanel({ restaurantId }: { restaurantId: string }) {
+  const [rows, setRows] = useState<CustomerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data: offers } = await supabase.from("offers").select("id").eq("restaurant_id", restaurantId);
+      const offerIds = (offers ?? []).map((o) => o.id);
+      if (offerIds.length === 0) {
+        setRows([]); setLoading(false); return;
+      }
+      const { data: visits } = await supabase.from("visits").select("user_id, offer_id").in("offer_id", offerIds);
+      const { data: reds } = await supabase.from("redemptions").select("user_id").eq("restaurant_id", restaurantId);
+      const counts: Record<string, { v: number; r: number }> = {};
+      (visits ?? []).forEach((v) => { counts[v.user_id] = counts[v.user_id] ?? { v: 0, r: 0 }; counts[v.user_id].v++; });
+      (reds ?? []).forEach((r) => { counts[r.user_id] = counts[r.user_id] ?? { v: 0, r: 0 }; counts[r.user_id].r++; });
+      const userIds = Object.keys(counts);
+      if (userIds.length === 0) { setRows([]); setLoading(false); return; }
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, email, birthday").in("id", userIds);
+      const list: CustomerRow[] = userIds.map((uid) => {
+        const p = (profiles ?? []).find((x) => x.id === uid);
+        return {
+          user_id: uid,
+          full_name: p?.full_name ?? null,
+          email: (p as any)?.email ?? null,
+          birthday: (p as any)?.birthday ?? null,
+          visits: counts[uid].v,
+          rewards: counts[uid].r,
+        };
+      }).sort((a, b) => b.visits - a.visits);
+      setRows(list);
+      setLoading(false);
+    })();
+  }, [restaurantId]);
+
+  return (
+    <Card className="p-5">
+      <h2 className="font-serif text-xl">Customer database</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Everyone who has stamped a visit with you.</p>
+      {loading ? (
+        <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">No customers yet.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="py-2 pr-2">Name</th>
+                <th className="py-2 pr-2">Email</th>
+                <th className="py-2 pr-2">Birthday</th>
+                <th className="py-2 pr-2 text-right">Visits</th>
+                <th className="py-2 pr-2 text-right">Rewards</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.user_id} className="border-b last:border-0">
+                  <td className="py-2 pr-2 font-medium">{r.full_name ?? "—"}</td>
+                  <td className="py-2 pr-2 text-muted-foreground">{r.email ?? "—"}</td>
+                  <td className="py-2 pr-2 text-muted-foreground">{r.birthday ?? "—"}</td>
+                  <td className="py-2 pr-2 text-right">{r.visits}</td>
+                  <td className="py-2 pr-2 text-right">{r.rewards}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+type StaffRow = { id: string; user_id: string; label: string | null; profiles?: { full_name: string | null; email: string | null } | null };
+
+function StaffPanel({ restaurantId }: { restaurantId: string }) {
+  const [rows, setRows] = useState<StaffRow[]>([]);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("restaurant_staff" as any)
+        .select("id, user_id, label, profiles:profiles!restaurant_staff_user_id_fkey(full_name, email)")
+        .eq("restaurant_id", restaurantId);
+      // fallback: separate fetch if relation not auto-discoverable
+      let list = (data ?? []) as any[];
+      if (list.length && !list[0].profiles) {
+        const ids = list.map((l) => l.user_id);
+        const { data: profs } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
+        list = list.map((l) => ({ ...l, profiles: (profs ?? []).find((p) => p.id === l.user_id) ?? null }));
+      }
+      setRows(list);
+    })();
+  }, [restaurantId, tick]);
+
+  return (
+    <Card className="space-y-4 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-serif text-xl">Staff & branches</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add team members or branch accounts. They can only sign in and verify customer reward codes.
+          </p>
+        </div>
+        <AddStaffDialog restaurantId={restaurantId} onAdded={() => setTick((t) => t + 1)} />
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No staff yet.</p>
+      ) : (
+        <ul className="divide-y">
+          {rows.map((s) => (
+            <li key={s.id} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{s.profiles?.full_name ?? s.profiles?.email ?? "Staff member"}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {s.profiles?.email} {s.label ? <>· <span className="text-primary">{s.label}</span></> : null}
+                </p>
+              </div>
+              <RemoveStaffButton staffId={s.id} onRemoved={() => setTick((t) => t + 1)} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function AddStaffDialog({ restaurantId, onAdded }: { restaurantId: string; onAdded: () => void }) {
+  const add = useServerFn(addStaffAccount);
+  const [open, setOpen] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await add({ data: { restaurantId, email, password, fullName, label: label || undefined } });
+      toast.success("Staff account added");
+      setOpen(false);
+      setFullName(""); setEmail(""); setPassword(""); setLabel("");
+      onAdded();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to add staff");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><UserPlus className="size-4" /> Add</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add staff or branch account</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5"><Label>Full name</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Sara · Downtown" /></div>
+          <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label>Temporary password</Label><Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" /></div>
+          <div className="space-y-1.5">
+            <Label>Branch label <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Downtown branch" />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Share these credentials with your staff. When they sign in they'll only see a "Verify" page.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={submit} disabled={busy || !fullName || !email || password.length < 6}>
+            {busy ? "Adding…" : "Add account"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RemoveStaffButton({ staffId, onRemoved }: { staffId: string; onRemoved: () => void }) {
+  const remove = useServerFn(removeStaffAccount);
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={async () => {
+        if (!confirm("Remove this staff member?")) return;
+        try {
+          await remove({ data: { staffId } });
+          onRemoved();
+        } catch (e: any) {
+          toast.error(e.message);
+        }
+      }}
+    >
+      <Trash2 className="size-4" />
+    </Button>
   );
 }
