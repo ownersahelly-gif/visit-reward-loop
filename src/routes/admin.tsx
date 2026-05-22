@@ -143,14 +143,6 @@ type ReqRow = {
 };
 
 function statusPill(status: string) {
-  const m: Record<string, { l: string; cls: string; Icon: any }> = {
-    pending: { l: "Pending", cls: "bg-secondary text-secondary-foreground", Icon: Clock },
-    accepted: { l: "Accepted", cls: "bg-primary/15 text-primary", Icon: CheckCircle2 },
-    shipped: { l: "Shipped", cls: "bg-primary/15 text-primary", Icon: Truck },
-    delivered: { l: "Delivered & paid", cls: "bg-emerald-500/15 text-emerald-700", Icon: Package },
-    rejected: { l: "Rejected", cls: "bg-destructive/15 text-destructive", Icon: XCircle },
-  }[status] ? { ...({} as any) } : ({} as any);
-  const map: Record<string, { l: string; cls: string; Icon: any }> = {
     pending: { l: "Pending", cls: "bg-secondary text-secondary-foreground", Icon: Clock },
     accepted: { l: "Accepted", cls: "bg-primary/15 text-primary", Icon: CheckCircle2 },
     shipped: { l: "Shipped", cls: "bg-primary/15 text-primary", Icon: Truck },
