@@ -109,6 +109,10 @@
 
 @layer base {
   * { border-color: var(--color-border); }
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
