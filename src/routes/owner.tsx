@@ -313,11 +313,17 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [lastVerified, setLastVerified] = useState<{ title: string; reward: string } | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
-  const verify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = code.trim();
+  const verifyCode = async (raw: string, scannedRestaurantId?: string) => {
+    const trimmed = raw.trim();
     if (trimmed.length !== 6) return toast.error("Enter the 6-digit code");
+    if (scannedRestaurantId && scannedRestaurantId !== restaurantId) {
+      toast.error("Wrong restaurant", {
+        description: "This reward code belongs to a different restaurant.",
+      });
+      return;
+    }
     setBusy(true);
     try {
       const { data: rows, error } = await supabase
@@ -358,6 +364,22 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
     }
   };
 
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    verifyCode(code);
+  };
+
+  const onScanned = (raw: string) => {
+    setScannerOpen(false);
+    const parsed = parseScannedCode(raw);
+    if (!parsed) {
+      toast.error("Unrecognized QR code");
+      return;
+    }
+    setCode(parsed.code);
+    verifyCode(parsed.code, parsed.restaurantId);
+  };
+
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2">
@@ -365,9 +387,9 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
         <h2 className="font-serif text-xl">Verify customer reward</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Ask the customer to open their completed offer and read out the 6-digit code.
+        Enter the customer's 6-digit code, or scan their QR.
       </p>
-      <form onSubmit={verify} className="mt-4 flex flex-col gap-3 sm:flex-row">
+      <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row">
         <Input
           inputMode="numeric"
           pattern="\d{6}"
@@ -380,6 +402,9 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
         <Button type="submit" disabled={busy || code.length !== 6} size="lg">
           {busy ? "Verifying…" : "Verify"}
         </Button>
+        <Button type="button" variant="outline" size="lg" onClick={() => setScannerOpen(true)}>
+          <QrCode className="size-4" /> Scan QR
+        </Button>
       </form>
       {lastVerified && (
         <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/10 p-3 text-sm text-primary">
@@ -390,6 +415,7 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
           </div>
         </div>
       )}
+      <QrScannerDialog open={scannerOpen} onOpenChange={setScannerOpen} onResult={onScanned} />
     </Card>
   );
 }
