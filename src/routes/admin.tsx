@@ -143,6 +143,7 @@ type ReqRow = {
 };
 
 function statusPill(status: string) {
+  const map: Record<string, { l: string; cls: string; Icon: any }> = {
     pending: { l: "Pending", cls: "bg-secondary text-secondary-foreground", Icon: Clock },
     accepted: { l: "Accepted", cls: "bg-primary/15 text-primary", Icon: CheckCircle2 },
     shipped: { l: "Shipped", cls: "bg-primary/15 text-primary", Icon: Truck },
