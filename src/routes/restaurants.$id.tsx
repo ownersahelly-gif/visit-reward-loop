@@ -250,50 +250,34 @@ function OfferBlock({
       return;
     }
     if (index !== stamped || complete) return;
-    if (typeof window === "undefined" || !("NDEFReader" in window)) {
-      toast.error("NFC not supported", {
-        description: "Use Chrome on an Android phone to tap the branch card.",
-      });
+    if (!isNfcAvailable()) {
+      toast.error("NFC not supported", { description: nfcUnsupportedMessage() });
       return;
     }
     setNfcError(null);
     setScanning(true);
     await buzz(20);
     try {
-      // @ts-ignore - NDEFReader is not in lib.dom
-      const reader = new window.NDEFReader();
-      const ctrl = new AbortController();
-      nfcAbortRef.current = ctrl;
-      await reader.scan({ signal: ctrl.signal });
-      reader.onreadingerror = () => setNfcError("Couldn't read the card. Try again.");
-      reader.onreading = async (event: any) => {
-        try {
-          let token = "";
-          for (const record of event.message?.records ?? []) {
-            if (record.recordType === "text" || record.recordType === "url" || record.recordType === "mime") {
-              const decoder = new TextDecoder(record.encoding ?? "utf-8");
-              const text = decoder.decode(record.data).trim();
-              const m = text.match(/([a-f0-9]{16,})/i);
-              if (m) { token = m[1]; break; }
-            }
+      const stop = await startNfcScan({
+        onError: (m) => setNfcError(m),
+        onToken: async (token) => {
+          try {
+            const res = await stampFn({ data: { restaurantId, offerId: offer.id, nfcToken: token } });
+            stop();
+            nfcAbortRef.current = null;
+            setScanning(false);
+            await buzz(40);
+            setJustStamped(index);
+            toast.success("Stamp added!", { description: `Checked in at ${res.branch}` });
+            onChanged();
+            setTimeout(() => setJustStamped(null), 800);
+          } catch (e: any) {
+            setNfcError(e?.message ?? "Couldn't stamp visit");
           }
-          if (!token && event.serialNumber) {
-            token = String(event.serialNumber).replace(/[^a-f0-9]/gi, "");
-          }
-          if (!token) throw new Error("Card is empty or unreadable");
-          const res = await stampFn({ data: { restaurantId, offerId: offer.id, nfcToken: token } });
-          ctrl.abort();
-          nfcAbortRef.current = null;
-          setScanning(false);
-          await buzz(40);
-          setJustStamped(index);
-          toast.success("Stamp added!", { description: `Checked in at ${res.branch}` });
-          onChanged();
-          setTimeout(() => setJustStamped(null), 800);
-        } catch (e: any) {
-          setNfcError(e?.message ?? "Couldn't stamp visit");
-        }
-      };
+        },
+      });
+      // Adapt the stop fn into the existing AbortController ref shape
+      nfcAbortRef.current = { abort: stop } as unknown as AbortController;
     } catch (e: any) {
       setScanning(false);
       setNfcError(e?.message ?? "Couldn't start NFC reader");
@@ -301,6 +285,7 @@ function OfferBlock({
   };
 
   useEffect(() => () => nfcAbortRef.current?.abort(), []);
+
 
 
   return (
