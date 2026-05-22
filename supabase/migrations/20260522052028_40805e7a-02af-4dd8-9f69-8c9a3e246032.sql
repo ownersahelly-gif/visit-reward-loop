@@ -1,0 +1,1 @@
+ALTER TABLE public.restaurant_staff ADD COLUMN IF NOT EXISTS nfc_token text UNIQUE;
