@@ -16,8 +16,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Toggle is shown only when the account legitimately has both sides
   // (admins, or older accounts with both roles). Pure restaurant owners stay
-  // in the dashboard only.
-  const showCustomerToggle = isOwner && (isAdmin || isCustomer);
+  // in the dashboard only. Staff never see the customer toggle.
+  const [isStaff, _isStaffPlaceholder] = useState(false); _isStaffPlaceholder;
 
   const [isStaff, setIsStaff] = useState(false);
   const [staffChecked, setStaffChecked] = useState(false);
