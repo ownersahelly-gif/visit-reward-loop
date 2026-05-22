@@ -198,6 +198,21 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
         onOpenChange={setScannerOpen}
         onResult={onScanned}
       />
+      {reveal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm p-6 animate-in fade-in"
+          onClick={() => setReveal(null)}
+        >
+          <div className="max-w-2xl w-full text-center space-y-6">
+            <CheckCircle2 className="size-20 text-primary mx-auto" />
+            <p className="text-sm uppercase tracking-widest text-muted-foreground">Give the customer</p>
+            <p className="font-serif text-5xl sm:text-7xl font-semibold leading-tight">{reveal.reward}</p>
+            <p className="text-xl text-muted-foreground">{reveal.title}</p>
+            {reveal.customer && <p className="text-sm text-muted-foreground">For: {reveal.customer}</p>}
+            <p className="text-xs text-muted-foreground pt-4">Closing in {countdown}s · tap to dismiss</p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
