@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch, Package, Truck, XCircle, Clock, QrCode } from "lucide-react";
 import { QrScannerDialog, parseScannedCode } from "@/components/QrScannerDialog";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/edge";
 
 import {
   createBranchRequest,

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut, CheckCircle2, Truck, Package, XCircle, Clock, Nfc } from "lucide-react";
 import { toast } from "sonner";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/edge";
 import {
   listAllBranchRequests,
   acceptBranchRequest,
