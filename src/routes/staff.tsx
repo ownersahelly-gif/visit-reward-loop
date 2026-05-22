@@ -1,14 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QrScannerDialog, parseScannedCode } from "@/components/QrScannerDialog";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { ScanLine, CheckCircle2, QrCode, X } from "lucide-react";
+import { ScanLine, CheckCircle2, QrCode } from "lucide-react";
 
 export const Route = createFileRoute("/staff")({ component: StaffPage });
 
