@@ -139,14 +139,7 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
 
   const onScanned = (raw: string) => {
     setScannerOpen(false);
-    let parsed: string | null = null;
-    try {
-      const obj = JSON.parse(raw);
-      if (obj && typeof obj.c === "string" && /^\d{6}$/.test(obj.c)) parsed = obj.c;
-    } catch {
-      // not JSON — accept a bare 6-digit string
-      if (/^\d{6}$/.test(raw.trim())) parsed = raw.trim();
-    }
+    const parsed = parseScannedCode(raw);
     if (!parsed) {
       toast.error("Unrecognized QR code");
       return;
@@ -192,66 +185,5 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
         onResult={onScanned}
       />
     </>
-  );
-}
-
-function QrScannerDialog({
-  open,
-  onOpenChange,
-  onResult,
-}: {
-  open: boolean;
-  onOpenChange: (b: boolean) => void;
-  onResult: (text: string) => void;
-}) {
-  const containerId = "qr-scanner-region";
-  const scannerRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    (async () => {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      if (cancelled) return;
-      const el = document.getElementById(containerId);
-      if (!el) return;
-      const scanner = new Html5Qrcode(containerId);
-      scannerRef.current = scanner;
-      try {
-        await scanner.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 240, height: 240 } },
-          (decoded) => {
-            onResult(decoded);
-          },
-          () => {},
-        );
-      } catch (e: any) {
-        toast.error(e?.message ?? "Camera unavailable");
-        onOpenChange(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      const s = scannerRef.current;
-      if (s) {
-        s.stop().catch(() => {}).finally(() => {
-          s.clear().catch(() => {});
-        });
-        scannerRef.current = null;
-      }
-    };
-  }, [open, onResult, onOpenChange]);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><QrCode className="size-4" /> Scan customer QR</DialogTitle>
-        </DialogHeader>
-        <div id={containerId} className="overflow-hidden rounded-xl bg-black [&_video]:w-full" />
-        <Button variant="ghost" onClick={() => onOpenChange(false)}><X className="size-4" /> Cancel</Button>
-      </DialogContent>
-    </Dialog>
   );
 }
