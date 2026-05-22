@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Store, ShieldCheck, Coffee, User, ScanLine } from "lucide-react";
+import { LogOut, Store, ShieldCheck, Coffee, User, ScanLine, Trophy } from "lucide-react";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, roles, signOut } = useAuth();
