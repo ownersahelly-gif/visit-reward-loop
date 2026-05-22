@@ -71,18 +71,13 @@ If asked something you don't know, say so honestly and suggest they ask a staff 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          config: {
-            uses: 1,
-            expireTime,
-            newSessionExpireTime,
-            liveConnectConstraints: {
-              model: "models/gemini-2.5-flash-preview-native-audio-dialog",
-              config: {
-                responseModalities: ["AUDIO"],
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-              },
-            },
-            httpOptions: { apiVersion: "v1alpha" },
+          uses: 1,
+          expireTime,
+          newSessionExpireTime,
+          bidiGenerateContentSetup: {
+            model: "models/gemini-2.5-flash-preview-native-audio-dialog",
+            generationConfig: { responseModalities: ["AUDIO"] },
+            systemInstruction: { parts: [{ text: systemInstruction }] },
           },
         }),
       }
