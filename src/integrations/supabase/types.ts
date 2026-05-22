@@ -269,18 +269,21 @@ export type Database = {
           id: string
           offer_id: string
           user_id: string
+          verified_by: string | null
           visited_at: string
         }
         Insert: {
           id?: string
           offer_id: string
           user_id: string
+          verified_by?: string | null
           visited_at?: string
         }
         Update: {
           id?: string
           offer_id?: string
           user_id?: string
+          verified_by?: string | null
           visited_at?: string
         }
         Relationships: [
