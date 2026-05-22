@@ -72,8 +72,17 @@ export function isNfcAvailable(): boolean {
   return "NDEFReader" in window;
 }
 
+function isIosSafari(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /iPad|iPhone|iPod/.test(ua);
+}
+
 export function nfcUnsupportedMessage(): string {
   if (typeof window !== "undefined" && Capacitor.getPlatform() === "web") {
+    if (isIosSafari()) {
+      return "Safari on iOS can't read NFC. Please open this inside the installed iOS app (Capacitor build) — not in Safari.";
+    }
     return "On the web, use Chrome on an Android phone — or install our iOS / Android app.";
   }
   return "NFC isn't available on this device.";
