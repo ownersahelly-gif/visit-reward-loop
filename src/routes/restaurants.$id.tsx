@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
 import { useServerFn } from "@/lib/edge";
 import { stampVisitByNfc, adminTestStampVisit } from "@/lib/nfc.functions";
+import { startNfcScan, isNfcAvailable, nfcUnsupportedMessage } from "@/lib/nfc-scanner";
 
 
 export const Route = createFileRoute("/restaurants/$id")({ component: RestaurantPage });
