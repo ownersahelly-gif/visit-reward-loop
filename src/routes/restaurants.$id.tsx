@@ -7,8 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy } from "lucide-react";
+import { ArrowLeft, Sparkles, Wifi, CheckCircle2, KeyRound, Trophy, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { buzz, celebrate } from "@/lib/haptics";
 
