@@ -61,7 +61,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur">
+      <div aria-hidden className="bg-background" style={{ height: "env(safe-area-inset-top)" }} />
+      <header
+        className="sticky z-40 border-b border-border/60 bg-background/80 backdrop-blur"
+        style={{ top: "env(safe-area-inset-top)" }}
+      >
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-3 sm:px-4">
           <Link to="/" className="flex shrink-0 items-center gap-2">
             <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
