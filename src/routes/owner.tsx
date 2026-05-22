@@ -335,10 +335,12 @@ function VerifyPanel({ restaurantId }: { restaurantId: string }) {
         .eq("id", row.id)
         .is("used_at", null);
       if (upErr) throw upErr;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       const { error: redErr } = await supabase.from("redemptions").insert({
         user_id: row.user_id,
         offer_id: row.offer_id,
         restaurant_id: restaurantId,
+        verified_by: authUser?.id ?? null,
       });
       if (redErr) throw redErr;
       setLastVerified({ title: row.offers?.title ?? "Offer", reward: row.offers?.reward ?? "" });
