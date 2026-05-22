@@ -134,6 +134,17 @@ function OwnerPage() {
   );
 }
 
+function SetupRestaurantNotice() {
+  return (
+    <Card className="p-5">
+      <h2 className="font-serif text-xl">Create your restaurant first</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Save your restaurant profile, then this section will show its customer and staff tools.
+      </p>
+    </Card>
+  );
+}
+
 function CollapsibleRestaurant({ restaurant, onSaved }: { restaurant: Restaurant | null; onSaved: () => void }) {
   const [open, setOpen] = useState(!restaurant);
   return (
