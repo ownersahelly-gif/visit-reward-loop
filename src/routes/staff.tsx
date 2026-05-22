@@ -81,7 +81,8 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
       if (!row) return toast.error("Invalid or expired code");
       const { error: u1 } = await supabase.from("redemption_codes").update({ used_at: new Date().toISOString() }).eq("id", row.id).is("used_at", null);
       if (u1) throw u1;
-      const { error: u2 } = await supabase.from("redemptions").insert({ user_id: row.user_id, offer_id: row.offer_id, restaurant_id: restaurantId });
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { error: u2 } = await supabase.from("redemptions").insert({ user_id: row.user_id, offer_id: row.offer_id, restaurant_id: restaurantId, verified_by: authUser?.id ?? null });
       if (u2) throw u2;
       setLast({ title: row.offers?.title ?? "Offer", reward: row.offers?.reward ?? "" });
       setCode("");

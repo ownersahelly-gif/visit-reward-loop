@@ -137,6 +137,7 @@ export type Database = {
           redeemed_at: string
           restaurant_id: string
           user_id: string
+          verified_by: string | null
         }
         Insert: {
           id?: string
@@ -144,6 +145,7 @@ export type Database = {
           redeemed_at?: string
           restaurant_id: string
           user_id: string
+          verified_by?: string | null
         }
         Update: {
           id?: string
@@ -151,6 +153,7 @@ export type Database = {
           redeemed_at?: string
           restaurant_id?: string
           user_id?: string
+          verified_by?: string | null
         }
         Relationships: [
           {
