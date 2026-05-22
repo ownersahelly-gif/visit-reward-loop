@@ -63,39 +63,8 @@ Bestsellers:
 ${bestsellersText}
 ${offersText}`;
 
-    // Mint ephemeral token (valid ~30 min, session uses last ~10 min after first connect)
-    const now = Date.now();
-    const expireTime = new Date(now + 30 * 60 * 1000).toISOString();
-    const newSessionExpireTime = new Date(now + 2 * 60 * 1000).toISOString();
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1alpha/auth_tokens?key=${GOOGLE_AI_STUDIO_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uses: 1,
-          expireTime,
-          newSessionExpireTime,
-          bidiGenerateContentSetup: {
-            model: "models/gemini-2.0-flash-live-001",
-            generationConfig: { responseModalities: ["AUDIO"] },
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            inputAudioTranscription: {},
-            outputAudioTranscription: {},
-          },
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const txt = await res.text();
-      console.error("auth_tokens error", res.status, txt);
-      return json({ error: `Failed to mint token: ${res.status}` }, 500);
-    }
-    const data = await res.json();
     return json({
-      token: data.name,
+      systemInstruction,
       restaurantName: restaurant.name,
     });
   } catch (e: any) {
@@ -103,3 +72,4 @@ ${offersText}`;
     return json({ error: e?.message ?? "Unknown error" }, 500);
   }
 });
+
