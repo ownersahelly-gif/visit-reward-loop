@@ -498,11 +498,32 @@ function OtpDialog({
 
           {/* Code body */}
           <div className="space-y-5 px-6 pb-7 pt-2 text-center">
-            <div className="rounded-2xl bg-primary/8 px-3 py-5">
-              <p className="font-mono text-[44px] font-bold leading-none tracking-[0.2em] text-primary">
-                {code || "······"}
-              </p>
-            </div>
+            <Tabs defaultValue="code" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="code"><KeyRound className="size-3.5" /> Code</TabsTrigger>
+                <TabsTrigger value="qr"><QrCode className="size-3.5" /> QR</TabsTrigger>
+              </TabsList>
+              <TabsContent value="code" className="mt-4">
+                <div className="rounded-2xl bg-primary/8 px-3 py-5">
+                  <p className="font-mono text-[44px] font-bold leading-none tracking-[0.2em] text-primary">
+                    {code || "······"}
+                  </p>
+                </div>
+              </TabsContent>
+              <TabsContent value="qr" className="mt-4">
+                <div className="mx-auto grid w-fit place-items-center rounded-2xl bg-white p-4">
+                  {code ? (
+                    <QRCodeSVG
+                      value={JSON.stringify({ r: restaurantId, c: code })}
+                      size={180}
+                      level="M"
+                    />
+                  ) : (
+                    <div className="size-[180px] animate-pulse rounded bg-secondary" />
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
             <div className="space-y-2">
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
                 <div
