@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const GOOGLE_AI_STUDIO_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,28 +62,40 @@ ${menuLines ? `MENU:\n${menuLines}\n` : "No menu loaded yet.\n"}
 ${offerLines ? `LOYALTY OFFERS:\n${offerLines}\n` : ""}
 When recommending a dish, mention its EXACT name as written in the menu — the app will automatically show its photo. Be enthusiastic and personal. If asked about something not on the menu, politely say it's not available and suggest a similar item.`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const geminiMessages = messages
+      .filter((m: any) => typeof m?.content === "string" && m.content.trim())
+      .map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+
+    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_AI_STUDIO_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: geminiMessages,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 220,
+        },
       }),
     });
 
     if (!aiRes.ok) {
-      if (aiRes.status === 429) return json({ error: "Rate limit reached, please try again in a moment." }, 429);
-      if (aiRes.status === 402) return json({ error: "AI credits exhausted. Restaurant owner needs to top up." }, 402);
+      if (aiRes.status === 429) return json({ error: "Google AI quota reached, please try again in a moment." }, 429);
+      if (aiRes.status === 400 || aiRes.status === 401 || aiRes.status === 403) {
+        return json({ error: "Google AI Studio key or model access needs checking." }, aiRes.status);
+      }
       const t = await aiRes.text();
-      console.error("AI error", aiRes.status, t);
-      return json({ error: "AI gateway error" }, 500);
+      console.error("Google AI error", aiRes.status, t);
+      return json({ error: "Google AI request failed" }, 500);
     }
 
     const data = await aiRes.json();
-    const reply = data.choices?.[0]?.message?.content ?? "Sorry, I didn't catch that.";
+    const reply = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("").trim() || "Sorry, I didn't catch that.";
 
     // Find referenced menu items by name (case-insensitive substring)
     const photos = (menu ?? [])
