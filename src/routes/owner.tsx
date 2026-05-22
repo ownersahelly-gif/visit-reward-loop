@@ -107,6 +107,20 @@ function OwnerPage() {
           )}
 
           {restaurant && (
+            <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-serif text-base">Test the AI voice assistant</h3>
+                <p className="text-xs text-muted-foreground">Open the customer AI page for your restaurant to try live voice chat.</p>
+              </div>
+              <Button asChild variant="outline">
+                <Link to="/ai/$restaurantId" params={{ restaurantId: restaurant.id }} target="_blank">
+                  <Radio className="size-4" /> Test AI voice
+                </Link>
+              </Button>
+            </Card>
+          )}
+
+          {restaurant && (
             <section className="space-y-4">
               <div className="flex items-end justify-between">
                 <div>
