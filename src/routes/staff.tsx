@@ -61,17 +61,20 @@ function StaffPage() {
 function VerifyForm({ restaurantId }: { restaurantId: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [last, setLast] = useState<{ title: string; reward: string } | null>(null);
+  const [last, setLast] = useState<{ title: string; reward: string; customer?: string } | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
-  const verify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const t = code.trim();
-    if (t.length !== 6) return toast.error("Enter the 6-digit code");
+  const verifyCode = async (raw: string) => {
+    const t = raw.trim();
+    if (t.length !== 6) {
+      toast.error("Invalid code");
+      return;
+    }
     setBusy(true);
     try {
       const { data: rows, error } = await supabase
         .from("redemption_codes")
-        .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward)")
+        .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward), profiles:profiles!inner(full_name, email)")
         .eq("restaurant_id", restaurantId)
         .eq("code", t)
         .is("used_at", null)
@@ -79,25 +82,82 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
         .limit(1);
       if (error) throw error;
       const row = rows?.[0] as any;
-      if (!row) return toast.error("Invalid or expired code");
-      const { error: u1 } = await supabase.from("redemption_codes").update({ used_at: new Date().toISOString() }).eq("id", row.id).is("used_at", null);
-      if (u1) throw u1;
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      const { error: u2 } = await supabase.from("redemptions").insert({ user_id: row.user_id, offer_id: row.offer_id, restaurant_id: restaurantId, verified_by: authUser?.id ?? null });
-      if (u2) throw u2;
-      setLast({ title: row.offers?.title ?? "Offer", reward: row.offers?.reward ?? "" });
-      setCode("");
-      toast.success("Reward verified!");
+      if (!row) {
+        // retry without profile join
+        const { data: rows2 } = await supabase
+          .from("redemption_codes")
+          .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward)")
+          .eq("restaurant_id", restaurantId)
+          .eq("code", t)
+          .is("used_at", null)
+          .gt("expires_at", new Date().toISOString())
+          .limit(1);
+        const r2 = rows2?.[0] as any;
+        if (!r2) {
+          toast.error("Invalid or expired code");
+          return;
+        }
+        await finalize(r2);
+        return;
+      }
+      await finalize(row);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
       setBusy(false);
     }
+
+    async function finalize(row: any) {
+      const { error: u1 } = await supabase
+        .from("redemption_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .is("used_at", null);
+      if (u1) throw u1;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { error: u2 } = await supabase.from("redemptions").insert({
+        user_id: row.user_id,
+        offer_id: row.offer_id,
+        restaurant_id: restaurantId,
+        verified_by: authUser?.id ?? null,
+      });
+      if (u2) throw u2;
+      setLast({
+        title: row.offers?.title ?? "Offer",
+        reward: row.offers?.reward ?? "",
+        customer: row.profiles?.full_name ?? row.profiles?.email ?? undefined,
+      });
+      setCode("");
+      toast.success("Reward verified!");
+    }
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    verifyCode(code);
+  };
+
+  const onScanned = (raw: string) => {
+    setScannerOpen(false);
+    let parsed: string | null = null;
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj.c === "string" && /^\d{6}$/.test(obj.c)) parsed = obj.c;
+    } catch {
+      // not JSON — accept a bare 6-digit string
+      if (/^\d{6}$/.test(raw.trim())) parsed = raw.trim();
+    }
+    if (!parsed) {
+      toast.error("Unrecognized QR code");
+      return;
+    }
+    setCode(parsed);
+    verifyCode(parsed);
   };
 
   return (
     <>
-      <form onSubmit={verify} className="flex flex-col gap-3 sm:flex-row">
+      <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
         <Input
           inputMode="numeric"
           pattern="\d{6}"
@@ -111,6 +171,10 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
           <ScanLine className="size-4" />
           {busy ? "Verifying…" : "Verify"}
         </Button>
+        <Button type="button" variant="outline" size="lg" onClick={() => setScannerOpen(true)}>
+          <QrCode className="size-4" />
+          Scan QR
+        </Button>
       </form>
       {last && (
         <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/10 p-3 text-sm text-primary">
@@ -118,9 +182,76 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
           <div>
             <p className="font-medium">{last.title} — redeemed</p>
             <p className="opacity-80">Give the customer: {last.reward}</p>
+            {last.customer && <p className="text-xs opacity-70">For: {last.customer}</p>}
           </div>
         </div>
       )}
+      <QrScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onResult={onScanned}
+      />
     </>
+  );
+}
+
+function QrScannerDialog({
+  open,
+  onOpenChange,
+  onResult,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  onResult: (text: string) => void;
+}) {
+  const containerId = "qr-scanner-region";
+  const scannerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      if (cancelled) return;
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      const scanner = new Html5Qrcode(containerId);
+      scannerRef.current = scanner;
+      try {
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 240, height: 240 } },
+          (decoded) => {
+            onResult(decoded);
+          },
+          () => {},
+        );
+      } catch (e: any) {
+        toast.error(e?.message ?? "Camera unavailable");
+        onOpenChange(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      const s = scannerRef.current;
+      if (s) {
+        s.stop().catch(() => {}).finally(() => {
+          s.clear().catch(() => {});
+        });
+        scannerRef.current = null;
+      }
+    };
+  }, [open, onResult, onOpenChange]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><QrCode className="size-4" /> Scan customer QR</DialogTitle>
+        </DialogHeader>
+        <div id={containerId} className="overflow-hidden rounded-xl bg-black [&_video]:w-full" />
+        <Button variant="ghost" onClick={() => onOpenChange(false)}><X className="size-4" /> Cancel</Button>
+      </DialogContent>
+    </Dialog>
   );
 }
