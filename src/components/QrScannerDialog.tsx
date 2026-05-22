@@ -65,12 +65,14 @@ export function QrScannerDialog({
   );
 }
 
-export function parseScannedCode(raw: string): string | null {
+export function parseScannedCode(raw: string): { code: string; restaurantId?: string } | null {
   try {
     const obj = JSON.parse(raw);
-    if (obj && typeof obj.c === "string" && /^\d{6}$/.test(obj.c)) return obj.c;
+    if (obj && typeof obj.c === "string" && /^\d{6}$/.test(obj.c)) {
+      return { code: obj.c, restaurantId: typeof obj.r === "string" ? obj.r : undefined };
+    }
   } catch {
-    if (/^\d{6}$/.test(raw.trim())) return raw.trim();
+    if (/^\d{6}$/.test(raw.trim())) return { code: raw.trim() };
   }
   return null;
 }

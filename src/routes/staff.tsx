@@ -64,10 +64,16 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
   const [last, setLast] = useState<{ title: string; reward: string; customer?: string } | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
 
-  const verifyCode = async (raw: string) => {
+  const verifyCode = async (raw: string, scannedRestaurantId?: string) => {
     const t = raw.trim();
     if (t.length !== 6) {
       toast.error("Invalid code");
+      return;
+    }
+    if (scannedRestaurantId && scannedRestaurantId !== restaurantId) {
+      toast.error("Wrong restaurant", {
+        description: "This reward code belongs to a different restaurant.",
+      });
       return;
     }
     setBusy(true);
@@ -144,8 +150,8 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
       toast.error("Unrecognized QR code");
       return;
     }
-    setCode(parsed);
-    verifyCode(parsed);
+    setCode(parsed.code);
+    verifyCode(parsed.code, parsed.restaurantId);
   };
 
   return (
