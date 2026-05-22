@@ -892,6 +892,3 @@ function RequestBranchDialog({
   );
 }
 
-  );
-}
-
