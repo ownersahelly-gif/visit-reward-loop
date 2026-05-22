@@ -391,16 +391,28 @@ function OfferBlock({
             />
           </div>
         ) : (
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={() => handleTap(stamped)}
-            disabled={!user || scanning}
-          >
-            <Wifi className="size-4" />
-            {scanning ? "Waiting for card…" : "Tap card to stamp visit"}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => (scanning ? cancelNfc() : handleTap(stamped))}
+              disabled={!user}
+              variant={scanning ? "outline" : "default"}
+            >
+              {scanning ? <X className="size-4" /> : <Wifi className="size-4" />}
+              {scanning ? "Cancel — waiting for branch card…" : "Tap card to stamp visit"}
+            </Button>
+            {scanning && (
+              <p className="text-center text-xs text-muted-foreground">
+                Hold the branch's NFC card to the back of your phone.
+              </p>
+            )}
+            {nfcError && (
+              <p className="text-center text-xs text-destructive">{nfcError}</p>
+            )}
+          </div>
         )}
+
       </div>
     </Card>
   );
