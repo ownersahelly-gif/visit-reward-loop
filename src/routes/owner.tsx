@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Trash2, ScanLine, CheckCircle2, ChevronDown, Users, Store, UserPlus, GitBranch, Package, Truck, XCircle, Clock } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { removeStaffAccount } from "@/lib/staff.functions";
+
 import {
   createBranchRequest,
   listMyBranchRequests,
