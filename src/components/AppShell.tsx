@@ -38,6 +38,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     })();
   }, [user]);
 
+  const showCustomerToggle = isOwner && (isAdmin || isCustomer) && !isStaff;
+
   // Route guard: keep restaurant owners and staff out of the customer flow.
   // Customers / admins are unaffected. Owners with a customer role (legacy
   // accounts + admins) keep the toggle and can browse both sides.
