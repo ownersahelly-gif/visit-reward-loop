@@ -40,6 +40,26 @@ npx cap sync android
 npx cap open android   # Android Studio
 ```
 
+## Enabling NFC on iOS (one-time, in Xcode)
+
+The NFC plugin is `@exxili/capacitor-nfc`. After `npx cap sync ios`:
+
+1. In Xcode, open the **App** target → **Signing & Capabilities**.
+2. Click **+ Capability** and add **Near Field Communication Tag Reading**.
+   Your Apple Developer account must be enrolled in the paid program — the
+   free personal team **cannot** sign apps with NFC entitlements.
+3. Open `ios/App/App/Info.plist` and add:
+   ```xml
+   <key>NFCReaderUsageDescription</key>
+   <string>Stamp uses NFC to read the branch loyalty card.</string>
+   ```
+4. Rebuild from Xcode and tap **Hold the branch's NFC card** in the app —
+   iOS shows its native NFC scan sheet.
+
+> iOS supports **reading** NFC cards in the customer flow. **Writing** NFC
+> cards (admin tool) still requires Chrome on Android — that screen will
+> say so on iOS.
+
 ## Notes
 - The app talks to Lovable Cloud (Supabase) over HTTPS from inside the
   native shell. No additional configuration is needed — `src/integrations/supabase/client.ts`
@@ -49,3 +69,4 @@ npx cap open android   # Android Studio
   through Lovable; outside Lovable, deploy with `npx supabase functions deploy app-api`.
 - Haptics use `@capacitor/haptics` natively and `navigator.vibrate` in the browser
   (see `src/lib/haptics.ts`).
+
