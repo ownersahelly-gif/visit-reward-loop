@@ -427,6 +427,18 @@ function OfferBlock({
             {nfcError && (
               <p className="text-center text-xs text-destructive">{nfcError}</p>
             )}
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full border-dashed"
+                onClick={adminTestStamp}
+                disabled={scanning}
+              >
+                <Sparkle className="size-3.5" /> Admin: test stamp (no card)
+              </Button>
+            )}
           </div>
         )}
 
