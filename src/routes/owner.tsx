@@ -531,7 +531,7 @@ function CustomersPanel({ restaurantId }: { restaurantId: string }) {
   );
 }
 
-type StaffRow = { id: string; user_id: string; label: string | null; password: string | null; profiles?: { full_name: string | null; email: string | null } | null };
+type StaffRow = { id: string; user_id: string; label: string | null; password: string | null; nfc_token: string | null; profiles?: { full_name: string | null; email: string | null } | null };
 
 function StaffPanel({ restaurantId }: { restaurantId: string }) {
   const [rows, setRows] = useState<StaffRow[]>([]);
