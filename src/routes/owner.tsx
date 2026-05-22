@@ -674,54 +674,217 @@ function StaffPanel({ restaurantId }: { restaurantId: string }) {
   );
 }
 
-function AddStaffDialog({ restaurantId, onAdded }: { restaurantId: string; onAdded: () => void }) {
-  const add = useServerFn(addStaffAccount);
+function statusBadge(status: string) {
+  const map: Record<string, { label: string; cls: string; Icon: any }> = {
+    pending: { label: "Pending review", cls: "bg-secondary text-secondary-foreground", Icon: Clock },
+    accepted: { label: "Accepted — preparing card", cls: "bg-primary/15 text-primary", Icon: CheckCircle2 },
+    shipped: { label: "Shipped", cls: "bg-primary/15 text-primary", Icon: Truck },
+    delivered: { label: "Delivered & paid", cls: "bg-emerald-500/15 text-emerald-700", Icon: Package },
+    rejected: { label: "Rejected", cls: "bg-destructive/15 text-destructive", Icon: XCircle },
+  };
+  const m = map[status] ?? map.pending;
+  const Icon = m.Icon;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${m.cls}`}>
+      <Icon className="size-3" /> {m.label}
+    </span>
+  );
+}
+
+function BranchRequestsList({ restaurantId, reloadKey }: { restaurantId: string; reloadKey: number }) {
+  const list = useServerFn(listMyBranchRequests);
+  const [rows, setRows] = useState<any[]>([]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await list({ data: { restaurantId } });
+        setRows(res.requests);
+      } catch (e: any) {
+        console.error(e);
+      }
+    })();
+  }, [restaurantId, reloadKey, list]);
+
+  if (rows.length === 0) return null;
+  return (
+    <div>
+      <h3 className="text-sm font-medium">My requests</h3>
+      <ul className="mt-2 space-y-2">
+        {rows.map((r) => (
+          <li key={r.id} className="rounded-lg border border-border p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium">
+                  {r.branch_label}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    · {r.request_type === "reissue" ? "Reissue" : "New branch"}
+                  </span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {r.fee_amount} {r.currency} · cash on delivery
+                </p>
+                {r.reject_reason && (
+                  <p className="mt-1 text-xs text-destructive">Reason: {r.reject_reason}</p>
+                )}
+              </div>
+              {statusBadge(r.status)}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function RequestBranchDialog({
+  restaurantId,
+  existingStaff,
+  onSubmitted,
+}: {
+  restaurantId: string;
+  existingStaff: { id: string; label: string | null; email: string | null }[];
+  onSubmitted: () => void;
+}) {
+  const create = useServerFn(createBranchRequest);
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"new" | "reissue">("new");
+  const [branchLabel, setBranchLabel] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [label, setLabel] = useState("");
+  const [existingStaffId, setExistingStaffId] = useState<string>("");
+  const [shippingAddress, setShippingAddress] = useState("");
+  const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setMode("new"); setBranchLabel(""); setFullName(""); setEmail("");
+    setPassword(""); setExistingStaffId(""); setShippingAddress(""); setNotes("");
+  };
 
   const submit = async () => {
     setBusy(true);
     try {
-      await add({ data: { restaurantId, email, password, fullName, label: label || undefined } });
-      toast.success("Staff account added");
+      await create({
+        data: {
+          restaurantId,
+          requestType: mode,
+          branchLabel,
+          staffEmail: mode === "new" ? email : undefined,
+          staffPassword: mode === "new" ? password : undefined,
+          staffFullName: mode === "new" ? fullName : undefined,
+          existingStaffId: mode === "reissue" ? existingStaffId : undefined,
+          shippingAddress,
+          notes: notes || undefined,
+        },
+      });
+      toast.success("Request submitted. Admin will review and ship the card.");
       setOpen(false);
-      setFullName(""); setEmail(""); setPassword(""); setLabel("");
-      onAdded();
+      reset();
+      onSubmitted();
     } catch (e: any) {
-      toast.error(e.message ?? "Failed to add staff");
+      toast.error(e.message ?? "Failed to submit request");
     } finally {
       setBusy(false);
     }
   };
 
+  const canSubmit =
+    !!branchLabel &&
+    shippingAddress.length >= 5 &&
+    (mode === "reissue"
+      ? !!existingStaffId
+      : !!fullName && !!email && password.length >= 6);
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <DialogTrigger asChild>
-        <Button size="sm"><UserPlus className="size-4" /> Add</Button>
+        <Button size="sm"><UserPlus className="size-4" /> Request branch</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add staff or branch account</DialogTitle>
+          <DialogTitle>Request a branch NFC card</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1.5"><Label>Full name</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Sara · Downtown" /></div>
-          <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>Temporary password</Label><Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" /></div>
-          <div className="space-y-1.5">
-            <Label>Branch label <span className="text-xs text-muted-foreground">(optional)</span></Label>
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Downtown branch" />
+          <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+            Fee: <strong className="text-foreground">1000 EGP</strong>, cash on delivery.
+            Admin reviews, then ships the programmed NFC card to your address.
           </div>
-          <p className="text-xs text-muted-foreground">
-            Share these credentials with your staff. When they sign in they'll only see a "Verify" page.
-          </p>
+
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "new" | "reissue")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="new">New branch</TabsTrigger>
+              <TabsTrigger value="reissue" disabled={existingStaff.length === 0}>
+                Reissue (lost card)
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="new" className="mt-3 space-y-3">
+              <div className="space-y-1.5">
+                <Label>Branch name</Label>
+                <Input value={branchLabel} onChange={(e) => setBranchLabel(e.target.value)} placeholder="New Cairo" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Staff full name</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Sara Hossam" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Staff login email</Label>
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Temporary password</Label>
+                <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="reissue" className="mt-3 space-y-3">
+              <div className="space-y-1.5">
+                <Label>Branch</Label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  value={existingStaffId}
+                  onChange={(e) => {
+                    setExistingStaffId(e.target.value);
+                    const found = existingStaff.find((s) => s.id === e.target.value);
+                    if (found?.label) setBranchLabel(found.label);
+                  }}
+                >
+                  <option value="">Select a branch…</option>
+                  {existingStaff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label ?? s.email ?? s.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Branch name (confirm)</Label>
+                <Input value={branchLabel} onChange={(e) => setBranchLabel(e.target.value)} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The old card stops working as soon as admin ships the replacement.
+              </p>
+            </TabsContent>
+          </Tabs>
+
+          <div className="space-y-1.5">
+            <Label>Shipping address</Label>
+            <Textarea
+              value={shippingAddress}
+              onChange={(e) => setShippingAddress(e.target.value)}
+              placeholder="Street, building, city, governorate, contact phone"
+              rows={2}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          </div>
         </div>
         <DialogFooter>
-          <Button onClick={submit} disabled={busy || !fullName || !email || password.length < 6}>
-            {busy ? "Adding…" : "Add account"}
+          <Button onClick={submit} disabled={busy || !canSubmit}>
+            {busy ? "Submitting…" : "Submit request"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -729,108 +892,6 @@ function AddStaffDialog({ restaurantId, onAdded }: { restaurantId: string; onAdd
   );
 }
 
-function RemoveStaffButton({ staffId, onRemoved }: { staffId: string; onRemoved: () => void }) {
-  const remove = useServerFn(removeStaffAccount);
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={async () => {
-        if (!confirm("Remove this staff member?")) return;
-        try {
-          await remove({ data: { staffId } });
-          onRemoved();
-        } catch (e: any) {
-          toast.error(e.message);
-        }
-      }}
-    >
-      <Trash2 className="size-4" />
-    </Button>
-  );
-}
-
-function NfcCardSection({ staff, onChanged }: { staff: StaffRow; onChanged: () => void }) {
-  const setToken = useServerFn(setStaffNfcToken);
-  const [token, setToken_] = useState<string | null>(staff.nfc_token);
-  const [busy, setBusy] = useState(false);
-  const [writing, setWriting] = useState(false);
-  const supported = typeof window !== "undefined" && "NDEFReader" in window;
-
-  useEffect(() => { setToken_(staff.nfc_token); }, [staff.nfc_token]);
-
-  const ensureToken = async (regenerate = false) => {
-    setBusy(true);
-    try {
-      const res = await setToken({ data: { staffId: staff.id, regenerate } });
-      setToken_(res.token);
-      onChanged();
-      return res.token;
-    } catch (e: any) {
-      toast.error(e.message);
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const writeCard = async () => {
-    const t = token ?? (await ensureToken(false));
-    if (!t) return;
-    if (!supported) {
-      toast.error("Use Chrome on Android to write NFC cards");
-      return;
-    }
-    setWriting(true);
-    try {
-      // @ts-ignore NDEFReader not in lib.dom
-      const writer = new window.NDEFReader();
-      await writer.write({ records: [{ recordType: "text", data: t }] });
-      toast.success("Card programmed. Hand it to this branch.");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Couldn't write card");
-    } finally {
-      setWriting(false);
-    }
-  };
-
-  return (
-    <div className="rounded-lg border border-dashed border-border p-3">
-      <div className="flex items-center gap-2">
-        <Nfc className="size-4 text-primary" />
-        <p className="text-sm font-medium">Branch NFC card</p>
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Program a blank NFC card with this branch's token. Customers tap the card to stamp their visit at this branch.
-      </p>
-      {token ? (
-        <p className="mt-2 break-all rounded bg-secondary/50 p-2 font-mono text-[11px]">{token}</p>
-      ) : (
-        <p className="mt-2 text-xs text-muted-foreground">No card linked yet.</p>
-      )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {!token && (
-          <Button size="sm" onClick={() => ensureToken(false)} disabled={busy}>
-            {busy ? "Generating…" : "Generate token"}
-          </Button>
-        )}
-        {token && (
-          <>
-            <Button size="sm" onClick={writeCard} disabled={writing}>
-              <Nfc className="size-4" /> {writing ? "Tap a card…" : "Write to NFC card"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => ensureToken(true)} disabled={busy}>
-              Regenerate
-            </Button>
-          </>
-        )}
-      </div>
-      {!supported && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          NFC writing requires Chrome on Android. You can still share the token above and write it with any NFC Tools app.
-        </p>
-      )}
-    </div>
   );
 }
 
