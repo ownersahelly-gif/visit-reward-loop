@@ -474,29 +474,47 @@ function OtpDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="font-serif">Show this to staff</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-5 py-2 text-center">
-          <p className="text-sm text-muted-foreground">{offer.title}</p>
-          <div className="rounded-2xl bg-primary/10 p-6">
-            <p className="font-mono text-5xl font-bold tracking-[0.4em] text-primary">
-              {code || "······"}
-            </p>
+      <DialogContent className="overflow-hidden rounded-3xl border-0 bg-transparent p-0 sm:max-w-sm shadow-2xl">
+        <div className="relative overflow-hidden rounded-3xl bg-card">
+          {/* Header band */}
+          <div className="relative bg-gradient-to-br from-primary to-primary/80 px-6 pb-8 pt-7 text-primary-foreground">
+            <DialogHeader className="space-y-1 text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.25em] opacity-80">Reward ready</p>
+              <DialogTitle className="font-serif text-2xl leading-tight">Show this to staff</DialogTitle>
+              <p className="text-sm opacity-90">{offer.title}</p>
+            </DialogHeader>
+            <div className="absolute -bottom-8 -right-6 size-32 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -top-6 -left-6 size-24 rounded-full bg-white/10 blur-xl" />
           </div>
-          <div className="space-y-2">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-              <div
-                className="h-full bg-primary transition-all duration-1000 ease-linear"
-                style={{ width: `${(secondsLeft / 60) * 100}%` }}
-              />
+
+          {/* Ticket notches */}
+          <div className="relative h-6 bg-card">
+            <div className="absolute -left-3 -top-3 size-6 rounded-full bg-background" />
+            <div className="absolute -right-3 -top-3 size-6 rounded-full bg-background" />
+            <div className="absolute left-4 right-4 top-3 border-t-2 border-dashed border-border" />
+          </div>
+
+          {/* Code body */}
+          <div className="space-y-5 px-6 pb-7 pt-2 text-center">
+            <div className="rounded-2xl bg-primary/8 px-3 py-5">
+              <p className="font-mono text-[44px] font-bold leading-none tracking-[0.2em] text-primary">
+                {code || "······"}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">New code in {secondsLeft}s</p>
+            <div className="space-y-2">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full bg-primary transition-all duration-1000 ease-linear"
+                  style={{ width: `${(secondsLeft / 60) * 100}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">New code in {secondsLeft}s</p>
+            </div>
+            <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-left">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Reward</p>
+              <p className="font-medium text-foreground">{offer.reward}</p>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Reward: <strong className="text-foreground">{offer.reward}</strong>
-          </p>
         </div>
       </DialogContent>
     </Dialog>
