@@ -79,16 +79,22 @@ function OwnerPage() {
       <p className="mt-1 text-sm text-muted-foreground">Manage your restaurant, customers and staff.</p>
 
       <Tabs defaultValue="restaurant" className="mt-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="restaurant"><Store className="mr-1.5 size-3.5" /> Restaurant</TabsTrigger>
-          <TabsTrigger value="customers" disabled={!restaurant}><Users className="mr-1.5 size-3.5" /> Customers</TabsTrigger>
-          <TabsTrigger value="staff" disabled={!restaurant}><GitBranch className="mr-1.5 size-3.5" /> Staff & branches</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-3 p-1">
+          <TabsTrigger value="restaurant" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
+            <Store className="size-3.5 shrink-0" /> <span className="truncate">Restaurant</span>
+          </TabsTrigger>
+          <TabsTrigger value="customers" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
+            <Users className="size-3.5 shrink-0" /> <span className="truncate">Customers</span>
+          </TabsTrigger>
+          <TabsTrigger value="staff" className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:text-sm">
+            <GitBranch className="size-3.5 shrink-0" /> <span className="truncate">Staff</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="restaurant" className="mt-6 space-y-6">
           <CollapsibleRestaurant restaurant={restaurant} onSaved={() => setTick((t) => t + 1)} />
 
-          {restaurant && restaurant.status === "active" && (
+          {restaurant && (
             <VerifyPanel restaurantId={restaurant.id} />
           )}
 
@@ -117,11 +123,11 @@ function OwnerPage() {
         </TabsContent>
 
         <TabsContent value="customers" className="mt-6">
-          {restaurant && <CustomersPanel restaurantId={restaurant.id} />}
+          {restaurant ? <CustomersPanel restaurantId={restaurant.id} /> : <SetupRestaurantNotice />}
         </TabsContent>
 
         <TabsContent value="staff" className="mt-6">
-          {restaurant && <StaffPanel restaurantId={restaurant.id} />}
+          {restaurant ? <StaffPanel restaurantId={restaurant.id} /> : <SetupRestaurantNotice />}
         </TabsContent>
       </Tabs>
     </AppShell>
