@@ -1,5 +1,5 @@
 // Cross-platform NFC scanner.
-// - Native iOS / Android via Capacitor (@exxili/capacitor-nfc)
+// - Native iOS / Android via @capgo/capacitor-nfc
 // - Chrome on Android (web) via Web NFC (NDEFReader)
 //
 // Returns a stop() function the caller uses to cancel.
@@ -25,11 +25,50 @@ function extractToken(text: string | undefined | null, fallbackUid?: string): st
   return "";
 }
 
+// Bytes (number[]) -> hex string
+function bytesToHex(bytes: number[] | undefined | null): string {
+  if (!bytes || bytes.length === 0) return "";
+  return bytes.map((b) => (b & 0xff).toString(16).padStart(2, "0")).join("");
+}
+
+// Decode an NDEF text record payload: [status, lang..., text...]
+// For URI records: [prefix, uri...]. Best effort UTF-8 for everything else.
+function decodeNdefPayload(tnf: number, type: number[], payload: number[]): string | undefined {
+  if (!payload || payload.length === 0) return undefined;
+  const typeStr = String.fromCharCode(...(type ?? []));
+  try {
+    // NDEF Well-Known Text (TNF=1, type="T")
+    if (tnf === 1 && typeStr === "T") {
+      const status = payload[0] ?? 0;
+      const langLen = status & 0x3f;
+      const textBytes = payload.slice(1 + langLen);
+      return new TextDecoder("utf-8").decode(new Uint8Array(textBytes));
+    }
+    // NDEF Well-Known URI (TNF=1, type="U")
+    if (tnf === 1 && typeStr === "U") {
+      const prefixes = [
+        "", "http://www.", "https://www.", "http://", "https://",
+        "tel:", "mailto:", "ftp://anonymous:anonymous@", "ftp://ftp.",
+        "ftps://", "sftp://", "smb://", "nfs://", "ftp://", "dav://",
+        "news:", "telnet://", "imap:", "rtsp://", "urn:", "pop:",
+        "sip:", "sips:", "tftp:", "btspp://", "btl2cap://", "btgoep://",
+        "tcpobex://", "irdaobex://", "file://", "urn:epc:id:",
+        "urn:epc:tag:", "urn:epc:pat:", "urn:epc:raw:", "urn:epc:", "urn:nfc:",
+      ];
+      const prefix = prefixes[payload[0]] ?? "";
+      const rest = new TextDecoder("utf-8").decode(new Uint8Array(payload.slice(1)));
+      return prefix + rest;
+    }
+    // Fallback: try utf-8 decode of the raw payload
+    return new TextDecoder("utf-8").decode(new Uint8Array(payload));
+  } catch {
+    return undefined;
+  }
+}
+
 export function isNfcAvailable(): boolean {
   if (typeof window === "undefined") return false;
-  // Capacitor native (iOS / Android)
   if (Capacitor.isNativePlatform()) return true;
-  // Web NFC (Chrome on Android only)
   return "NDEFReader" in window;
 }
 
@@ -42,21 +81,22 @@ export function nfcUnsupportedMessage(): string {
 
 export async function startNfcScan({ onToken, onError }: StartOptions): Promise<Stop> {
   if (Capacitor.isNativePlatform()) {
-    // Lazy import so the web bundle never tries to load the native plugin
-    const { NFC } = await import("@exxili/capacitor-nfc");
+    const { CapacitorNfc } = await import("@capgo/capacitor-nfc");
 
-    const offRead = NFC.onRead((data: any) => {
+    const handleEvent = (event: any) => {
       try {
-        const textView = data.string?.();
+        const tag = event?.tag ?? {};
         let text: string | undefined;
-        const records = textView?.messages?.[0]?.records ?? [];
+        const records: any[] = tag.ndefMessage ?? [];
         for (const r of records) {
-          if (typeof r?.payload === "string" && r.payload.length > 0) {
-            text = r.payload;
+          const decoded = decodeNdefPayload(r?.tnf ?? 0, r?.type ?? [], r?.payload ?? []);
+          if (decoded) {
+            text = decoded;
             break;
           }
         }
-        const token = extractToken(text);
+        const uidHex = bytesToHex(tag.id);
+        const token = extractToken(text, uidHex);
         if (!token) {
           onError?.("Card is empty or unreadable");
           return;
@@ -65,29 +105,28 @@ export async function startNfcScan({ onToken, onError }: StartOptions): Promise<
       } catch (e: any) {
         onError?.(e?.message ?? "Couldn't read card");
       }
-    });
+    };
 
-    const offErr = NFC.onError((err: any) => {
-      const msg = typeof err === "string" ? err : err?.message ?? "NFC error";
-      // User-cancelled session on iOS shouldn't surface as a hard error
-      if (/cancel|invalidate/i.test(msg)) return;
-      onError?.(msg);
-    });
+    const ndefHandle = await CapacitorNfc.addListener("ndefDiscovered", handleEvent);
+    const tagHandle = await CapacitorNfc.addListener("tagDiscovered", handleEvent);
 
-    // iOS requires explicitly starting a session; on Android it's a no-op.
     try {
-      await NFC.startScan();
+      await CapacitorNfc.startScanning({
+        alertMessage: "Hold the NFC card near the top of your phone",
+        invalidateAfterFirstRead: true,
+      });
     } catch (e: any) {
-      offRead();
-      offErr();
+      try { await ndefHandle.remove(); } catch {}
+      try { await tagHandle.remove(); } catch {}
       throw new Error(e?.message ?? "Couldn't start NFC reader");
     }
 
     return () => {
-      try { offRead(); } catch {}
-      try { offErr(); } catch {}
-      // Best-effort cancel — not all versions expose a stop method
-      try { (NFC as any).cancelScan?.(); } catch {}
+      void (async () => {
+        try { await ndefHandle.remove(); } catch {}
+        try { await tagHandle.remove(); } catch {}
+        try { await CapacitorNfc.stopScanning(); } catch {}
+      })();
     };
   }
 
