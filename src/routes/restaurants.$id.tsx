@@ -501,9 +501,10 @@ function OtpDialog({
           {/* Code body */}
           <div className="space-y-5 px-6 pb-7 pt-2 text-center">
             <Tabs defaultValue="code" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="code"><KeyRound className="size-3.5" /> Code</TabsTrigger>
                 <TabsTrigger value="qr"><QrCode className="size-3.5" /> QR</TabsTrigger>
+                <TabsTrigger value="nfc"><Nfc className="size-3.5" /> Tap</TabsTrigger>
               </TabsList>
               <TabsContent value="code" className="mt-4">
                 <div className="rounded-2xl bg-primary/8 px-3 py-5">
@@ -524,6 +525,9 @@ function OtpDialog({
                     <div className="size-[180px] animate-pulse rounded bg-secondary" />
                   )}
                 </div>
+              </TabsContent>
+              <TabsContent value="nfc" className="mt-4">
+                <NfcTapPanel restaurantId={restaurantId} offerId={offer.id} />
               </TabsContent>
             </Tabs>
             <div className="space-y-2">
