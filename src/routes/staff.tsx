@@ -80,7 +80,7 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
     try {
       const { data: rows, error } = await supabase
         .from("redemption_codes")
-        .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward), profiles:profiles!inner(full_name, email)")
+        .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward)")
         .eq("restaurant_id", restaurantId)
         .eq("code", t)
         .is("used_at", null)
@@ -89,23 +89,15 @@ function VerifyForm({ restaurantId }: { restaurantId: string }) {
       if (error) throw error;
       const row = rows?.[0] as any;
       if (!row) {
-        // retry without profile join
-        const { data: rows2 } = await supabase
-          .from("redemption_codes")
-          .select("id, user_id, offer_id, expires_at, used_at, offers(title, reward)")
-          .eq("restaurant_id", restaurantId)
-          .eq("code", t)
-          .is("used_at", null)
-          .gt("expires_at", new Date().toISOString())
-          .limit(1);
-        const r2 = rows2?.[0] as any;
-        if (!r2) {
-          toast.error("Invalid or expired code");
-          return;
-        }
-        await finalize(r2);
+        toast.error("Invalid or expired code");
         return;
       }
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", row.user_id)
+        .maybeSingle();
+      row.profiles = prof;
       await finalize(row);
     } catch (e: any) {
       toast.error(e.message);
